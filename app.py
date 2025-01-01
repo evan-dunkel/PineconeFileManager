@@ -24,10 +24,10 @@ try:
     index_name = "file-manager"
 
     # List existing indexes
-    existing_indexes = [index.name for index in pc.list_indexes()]
+    existing_indexes = pc.list_indexes()
 
     # Create index if it doesn't exist
-    if index_name not in existing_indexes:
+    if not any(index.name == index_name for index in existing_indexes):
         pc.create_index(
             name=index_name,
             dimension=1536,  # OpenAI embedding dimension
@@ -37,6 +37,7 @@ try:
                 region="us-west-2"
             )
         )
+        logging.info(f"Created new Pinecone index: {index_name}")
 
     # Get the index
     index = pc.Index(index_name)
