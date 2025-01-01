@@ -3,6 +3,8 @@ import mimetypes
 from PIL import Image
 import logging
 from werkzeug.utils import secure_filename
+from pdf2image import convert_from_path
+import tempfile
 
 THUMBNAIL_SIZE = (200, 200)
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -15,6 +17,10 @@ def get_mime_type(filename):
 def is_image(mime_type):
     """Check if the MIME type is an image"""
     return mime_type.startswith('image/')
+
+def is_pdf(mime_type):
+    """Check if the MIME type is a PDF"""
+    return mime_type == 'application/pdf'
 
 def generate_thumbnail(filepath, filename):
     """Generate a thumbnail for an image file"""
@@ -36,6 +42,28 @@ def generate_thumbnail(filepath, filename):
     except Exception as e:
         logging.error(f"Error generating thumbnail: {e}")
         return None
+
+def generate_pdf_preview(filepath, filename):
+    """Generate a preview image for a PDF file"""
+    try:
+        thumbnail_dir = os.path.join('static', 'thumbnails')
+        os.makedirs(thumbnail_dir, exist_ok=True)
+
+        thumbnail_filename = f"pdf_thumb_{secure_filename(filename)}.jpg"
+        thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+
+        # Convert only the first page of the PDF
+        with tempfile.TemporaryDirectory() as temp_dir:
+            images = convert_from_path(filepath, first_page=1, last_page=1, output_folder=temp_dir)
+            if images:
+                # Get the first page and create a thumbnail
+                preview = images[0]
+                preview.thumbnail(THUMBNAIL_SIZE)
+                preview.save(thumbnail_path, "JPEG", quality=85)
+                return os.path.join('thumbnails', thumbnail_filename)
+    except Exception as e:
+        logging.error(f"Error generating PDF preview: {e}")
+    return None
 
 def get_file_icon(mime_type):
     """Return appropriate icon based on mime type"""

@@ -5,7 +5,10 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
 from pinecone import Pinecone
-from utils import generate_thumbnail, get_mime_type, is_image, get_file_icon, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
+from utils import (
+    generate_thumbnail, generate_pdf_preview, get_mime_type, 
+    is_image, is_pdf, get_file_icon, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
+)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -68,6 +71,9 @@ def upload_file():
             thumbnail_path = None
             if is_image(mime_type):
                 thumbnail_path = generate_thumbnail(file_path, filename)
+            elif is_pdf(mime_type):
+                thumbnail_path = generate_pdf_preview(file_path, filename)
+                logging.info(f"Generated PDF preview: {thumbnail_path}")
 
             # Create database entry
             new_file = models.File(
