@@ -32,7 +32,7 @@
                                      alt="{{ file.filename }}" 
                                      class="img-thumbnail">
                             {% else %}
-                                <i data-feather="{{ file.mime_type.startswith('image/') and 'image' or 'file' }}" 
+                                <i data-feather="{{ get_file_icon(file.mime_type) }}" 
                                    class="preview-icon"></i>
                             {% endif %}
                         </div>
