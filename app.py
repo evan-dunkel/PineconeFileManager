@@ -146,9 +146,17 @@ def upload_file():
 
                     # Batch upsert all chunks to Pinecone
                     if vectors_to_upsert:
-                        index.upsert(vectors=vectors_to_upsert)
-                        vector_id = base_vector_id  # Store the base vector ID
-                        logging.info(f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks")
+                        # Use the correct Pinecone upsert method
+                        try:
+                            index.upsert(
+                                vectors=vectors_to_upsert,
+                                namespace=""  # Using default namespace
+                            )
+                            vector_id = base_vector_id  # Store the base vector ID
+                            logging.info(f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks")
+                        except Exception as e:
+                            logging.error(f"Pinecone upsert error: {e}")
+                            raise
 
                 except Exception as e:
                     logging.error(f"Error vectorizing file: {e}")
