@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, request, redirect, flash, url_for
+from flask import Flask, render_template, request, redirect, flash, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
@@ -44,47 +44,54 @@ ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(DOCUMENT_EXTENSIONS)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def get_file_icon(mime_type):
+    # Placeholder for a more robust icon selection
+    return "file.png"  
+
+
 @app.route('/')
 def index():
     files = db.session.execute(db.select(models.File)).scalars()
-    return render_template('index.html', files=files)
+    return render_template('index.html', files=files, get_file_icon=get_file_icon)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        flash('No file part')
-        return redirect(request.url)
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        flash('No selected file')
-        return redirect(request.url)
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        mime_type = get_mime_type(filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            mime_type = get_mime_type(filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
 
-        thumbnail_path = None
-        if is_image(mime_type):
-            thumbnail_path = generate_thumbnail(file_path, filename)
+            thumbnail_path = None
+            if is_image(mime_type):
+                thumbnail_path = generate_thumbnail(file_path, filename)
 
-        # Create database entry
-        new_file = models.File(
-            filename=filename,
-            filepath=file_path,
-            mime_type=mime_type,
-            thumbnail_path=thumbnail_path
-        )
-        db.session.add(new_file)
-        db.session.commit()
+            # Create database entry
+            new_file = models.File(
+                filename=filename,
+                filepath=file_path,
+                mime_type=mime_type,
+                thumbnail_path=thumbnail_path
+            )
+            db.session.add(new_file)
+            db.session.commit()
 
-        flash('File successfully uploaded')
-        return redirect(url_for('index'))
+            return jsonify({'message': 'File uploaded successfully'}), 200
 
-    flash('Invalid file type')
-    return redirect(url_for('index'))
+        return jsonify({'error': 'Invalid file type'}), 400
+
+    except Exception as e:
+        logging.error(f"Upload error: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
 def delete_file(file_id):
@@ -125,6 +132,4 @@ def rename_file(file_id):
 # Initialize database
 with app.app_context():
     import models
-    # Drop all tables and recreate them with the new schema
-    db.drop_all()
     db.create_all()

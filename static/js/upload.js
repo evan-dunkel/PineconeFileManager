@@ -42,7 +42,17 @@ document.addEventListener('DOMContentLoaded', function() {
         handleFiles(this.files);
     });
 
+    function showError(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger mt-3';
+        alertDiv.textContent = message;
+        uploadZone.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+
     function handleFiles(files) {
+        if (!files.length) return;
+
         const formData = new FormData();
         formData.append('file', files[0]);
 
@@ -60,12 +70,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         xhr.onload = function() {
+            progress.classList.remove('active');
+            const response = JSON.parse(xhr.responseText);
+
             if (xhr.status === 200) {
                 window.location.reload();
             } else {
-                alert('Upload failed. Please try again.');
+                showError(response.error || 'Upload failed. Please try again.');
             }
+        };
+
+        xhr.onerror = function() {
             progress.classList.remove('active');
+            showError('Upload failed. Please try again.');
         };
 
         xhr.send(formData);
@@ -77,17 +94,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const fileId = this.dataset.fileId;
             const currentName = this.dataset.fileName;
             const newName = prompt('Enter new filename:', currentName);
-            
+
             if (newName && newName !== currentName) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = `/rename/${fileId}`;
-                
+
                 const input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'new_name';
                 input.value = newName;
-                
+
                 form.appendChild(input);
                 document.body.appendChild(form);
                 form.submit();
