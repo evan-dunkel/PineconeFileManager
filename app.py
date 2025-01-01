@@ -7,7 +7,8 @@ from werkzeug.utils import secure_filename
 from pinecone import Pinecone
 from utils import (
     generate_thumbnail, generate_pdf_preview, get_mime_type, 
-    is_image, is_pdf, get_file_icon, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
+    is_image, is_pdf, get_file_icon, extract_text_from_file,
+    IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
 )
 
 # Configure logging
@@ -16,10 +17,20 @@ logging.basicConfig(level=logging.DEBUG)
 # Initialize Pinecone with proper error handling
 try:
     pc = Pinecone(api_key=os.environ.get('PINECONE_API_KEY'))
+    index_name = "file-manager"
+    # Create index if it doesn't exist
+    if index_name not in pc.list_indexes():
+        pc.create_index(
+            name=index_name,
+            dimension=1536,  # OpenAI embedding dimension
+            metric="cosine"
+        )
+    index = pc.Index(index_name)
     logging.info("Successfully connected to Pinecone")
 except Exception as e:
     logging.error(f"Error connecting to Pinecone: {e}")
     pc = None
+    index = None
 
 class Base(DeclarativeBase):
     pass
@@ -75,12 +86,46 @@ def upload_file():
                 thumbnail_path = generate_pdf_preview(file_path, filename)
                 logging.info(f"Generated PDF preview: {thumbnail_path}")
 
+            # Extract text content
+            text_content = extract_text_from_file(file_path, mime_type)
+            vector_id = None
+
+            # Generate embedding and store in Pinecone
+            if text_content and pc and index:
+                try:
+                    # Use file ID as vector ID
+                    vector_id = f"file_{filename}"
+
+                    # Get embeddings from text using Pinecone
+                    response = pc.embed(
+                        texts=[text_content],
+                        model_name="text-embedding-ada-002"
+                    )
+
+                    if response and response.embeddings:
+                        # Upsert the vector to Pinecone
+                        index.upsert(
+                            vectors=[{
+                                'id': vector_id,
+                                'values': response.embeddings[0],
+                                'metadata': {
+                                    'filename': filename,
+                                    'mime_type': mime_type
+                                }
+                            }]
+                        )
+                        logging.info(f"Successfully vectorized file: {filename}")
+                except Exception as e:
+                    logging.error(f"Error vectorizing file: {e}")
+
             # Create database entry
             new_file = models.File(
                 filename=filename,
                 filepath=file_path,
                 mime_type=mime_type,
-                thumbnail_path=thumbnail_path
+                thumbnail_path=thumbnail_path,
+                vector_id=vector_id,
+                processed=bool(vector_id)
             )
             db.session.add(new_file)
             db.session.commit()
@@ -104,6 +149,14 @@ def serve_file(file_id):
 def delete_file(file_id):
     file = db.get_or_404(models.File, file_id)
     try:
+        # Delete vector from Pinecone if it exists
+        if file.vector_id and pc and index:
+            try:
+                index.delete(ids=[file.vector_id])
+                logging.info(f"Deleted vector for file: {file.filename}")
+            except Exception as e:
+                logging.error(f"Error deleting vector: {e}")
+
         # Delete the actual file
         if os.path.exists(file.filepath):
             os.remove(file.filepath)

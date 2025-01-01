@@ -5,6 +5,8 @@ import logging
 from werkzeug.utils import secure_filename
 from pdf2image import convert_from_path
 import tempfile
+import PyPDF2
+import docx2txt
 
 THUMBNAIL_SIZE = (200, 200)
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -21,6 +23,42 @@ def is_image(mime_type):
 def is_pdf(mime_type):
     """Check if the MIME type is a PDF"""
     return mime_type == 'application/pdf'
+
+def extract_text_from_pdf(filepath):
+    """Extract text content from PDF file"""
+    try:
+        text = ""
+        with open(filepath, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        logging.error(f"Error extracting text from PDF: {e}")
+        return ""
+
+def extract_text_from_docx(filepath):
+    """Extract text content from DOCX file"""
+    try:
+        return docx2txt.process(filepath)
+    except Exception as e:
+        logging.error(f"Error extracting text from DOCX: {e}")
+        return ""
+
+def extract_text_from_file(filepath, mime_type):
+    """Extract text content from various file types"""
+    try:
+        if mime_type == 'application/pdf':
+            return extract_text_from_pdf(filepath)
+        elif mime_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']:
+            return extract_text_from_docx(filepath)
+        elif mime_type.startswith('text/'):
+            with open(filepath, 'r', encoding='utf-8') as file:
+                return file.read()
+        return ""
+    except Exception as e:
+        logging.error(f"Error extracting text from file: {e}")
+        return ""
 
 def generate_thumbnail(filepath, filename):
     """Generate a thumbnail for an image file"""
