@@ -148,9 +148,8 @@ def upload_file():
                     if vectors_to_upsert:
                         # Use the correct Pinecone upsert method
                         try:
-                            index.upsert(
+                            index.upsert_items(
                                 vectors=vectors_to_upsert,
-
                                 namespace=""  # Using default namespace
                             )
                             vector_id = base_vector_id  # Store the base vector ID
