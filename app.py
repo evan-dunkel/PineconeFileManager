@@ -1,11 +1,11 @@
 import os
 import logging
-from flask import Flask, render_template, request, redirect, flash, url_for, jsonify
+from flask import Flask, render_template, request, redirect, flash, url_for, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
 from pinecone import Pinecone
-from utils import generate_thumbnail, get_mime_type, is_image, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
+from utils import generate_thumbnail, get_mime_type, is_image, get_file_icon, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -43,11 +43,6 @@ ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(DOCUMENT_EXTENSIONS)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def get_file_icon(mime_type):
-    # Placeholder for a more robust icon selection
-    return "file.png"  
-
 
 @app.route('/')
 def index():
@@ -93,11 +88,24 @@ def upload_file():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/file/<int:file_id>')
+def serve_file(file_id):
+    """Serve the file for preview or download"""
+    file = db.get_or_404(models.File, file_id)
+    return send_file(file.filepath, mimetype=file.mime_type)
+
 @app.route('/delete/<int:file_id>', methods=['POST'])
 def delete_file(file_id):
     file = db.get_or_404(models.File, file_id)
     try:
-        os.remove(file.filepath)
+        # Delete the actual file
+        if os.path.exists(file.filepath):
+            os.remove(file.filepath)
+        # Delete thumbnail if exists
+        if file.thumbnail_path:
+            thumbnail_path = os.path.join('static', file.thumbnail_path)
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
         db.session.delete(file)
         db.session.commit()
         flash('File deleted successfully')

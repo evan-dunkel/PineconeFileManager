@@ -31,6 +31,12 @@
                                 <img src="{{ url_for('static', filename=file.thumbnail_path) }}" 
                                      alt="{{ file.filename }}" 
                                      class="img-thumbnail">
+                            {% elif file.mime_type == 'application/pdf' %}
+                                <a href="{{ url_for('serve_file', file_id=file.id) }}" target="_blank" 
+                                   class="text-decoration-none">
+                                    <i data-feather="{{ get_file_icon(file.mime_type) }}" 
+                                       class="preview-icon text-danger"></i>
+                                </a>
                             {% else %}
                                 <i data-feather="{{ get_file_icon(file.mime_type) }}" 
                                    class="preview-icon"></i>
@@ -43,6 +49,13 @@
                             </small>
                         </div>
                         <div class="file-actions">
+                            {% if file.mime_type == 'application/pdf' %}
+                                <a href="{{ url_for('serve_file', file_id=file.id) }}" 
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i data-feather="eye"></i>
+                                </a>
+                            {% endif %}
                             <button class="btn btn-sm btn-outline-primary rename-btn"
                                     data-file-id="{{ file.id }}"
                                     data-file-name="{{ file.filename }}">
