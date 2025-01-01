@@ -40,9 +40,55 @@ body {
     justify-content: space-between;
 }
 
+.file-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-preview {
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--light-gray);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.file-preview img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.preview-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--secondary-color);
+}
+
+.file-info {
+    flex-grow: 1;
+}
+
+.file-name {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
 .file-actions {
     display: flex;
     gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
 }
 
 .progress {

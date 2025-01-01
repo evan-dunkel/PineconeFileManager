@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
 from pinecone import Pinecone
+from utils import generate_thumbnail, get_mime_type, is_image, IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -30,14 +31,15 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 app.config["UPLOAD_FOLDER"] = "uploads"
 
-# Ensure upload directory exists
+# Ensure required directories exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(os.path.join("static", "thumbnails"), exist_ok=True)
 
 # Initialize extensions
 db.init_app(app)
 
 # File upload configuration
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'doc', 'docx'}
+ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(DOCUMENT_EXTENSIONS)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -60,13 +62,20 @@ def upload_file():
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
+        mime_type = get_mime_type(filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
+
+        thumbnail_path = None
+        if is_image(mime_type):
+            thumbnail_path = generate_thumbnail(file_path, filename)
 
         # Create database entry
         new_file = models.File(
             filename=filename,
-            filepath=file_path
+            filepath=file_path,
+            mime_type=mime_type,
+            thumbnail_path=thumbnail_path
         )
         db.session.add(new_file)
         db.session.commit()
@@ -113,6 +122,9 @@ def rename_file(file_id):
 
     return redirect(url_for('index'))
 
+# Initialize database
 with app.app_context():
     import models
+    # Drop all tables and recreate them with the new schema
+    db.drop_all()
     db.create_all()
