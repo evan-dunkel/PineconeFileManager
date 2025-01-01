@@ -92,12 +92,83 @@ body {
 }
 
 .progress {
+    height: 0.5rem;
+    margin: 1rem 0;
+    background-color: var(--light-gray);
+    border-radius: 0.25rem;
+    overflow: hidden;
     display: none;
-    margin-top: 1rem;
 }
 
 .progress.active {
     display: block;
+}
+
+.progress-bar {
+    width: 0;
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -200%;
+    width: 200%;
+    height: 100%;
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.4) 25%,
+        rgba(255, 255, 255, 0.2) 50%
+    );
+    animation: shimmer 2s infinite linear;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(200%);
+    }
+}
+
+.upload-status {
+    margin-top: 1rem;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.upload-status.active {
+    display: flex;
+}
+
+.upload-status-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    animation: spin 1s linear infinite;
+}
+
+.upload-status-icon.success {
+    color: var(--success-color);
+    animation: none;
+}
+
+.upload-status-icon.error {
+    color: var(--danger-color);
+    animation: none;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .alert {

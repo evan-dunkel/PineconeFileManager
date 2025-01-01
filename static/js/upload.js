@@ -3,6 +3,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.querySelector('#file-input');
     const progressBar = document.querySelector('.progress-bar');
     const progress = document.querySelector('.progress');
+    const uploadStatus = document.querySelector('.upload-status');
+    const uploadStatusIcon = uploadStatus.querySelector('.upload-status-icon');
+    const uploadStatusText = uploadStatus.querySelector('.upload-status-text');
+
+    function updateUploadStatus(status, message) {
+        uploadStatus.classList.add('active');
+        uploadStatusText.textContent = message;
+        uploadStatusIcon.setAttribute('data-feather', status === 'success' ? 'check-circle' : 
+                                                    status === 'error' ? 'alert-circle' : 'loader');
+        uploadStatusIcon.classList.remove('success', 'error');
+        if (status !== 'uploading') {
+            uploadStatusIcon.classList.add(status);
+        }
+        feather.replace();
+    }
 
     // Drag and drop handlers
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -43,11 +58,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function showError(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-danger mt-3';
-        alertDiv.textContent = message;
-        uploadZone.appendChild(alertDiv);
-        setTimeout(() => alertDiv.remove(), 5000);
+        updateUploadStatus('error', message);
+        setTimeout(() => {
+            uploadStatus.classList.remove('active');
+        }, 5000);
     }
 
     function handleFiles(files) {
@@ -58,6 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         progress.classList.add('active');
         progressBar.style.width = '0%';
+        updateUploadStatus('uploading', 'Uploading file...');
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload', true);
@@ -66,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.lengthComputable) {
                 const percentComplete = (e.loaded / e.total) * 100;
                 progressBar.style.width = percentComplete + '%';
+                updateUploadStatus('uploading', `Uploading: ${Math.round(percentComplete)}%`);
             }
         });
 
@@ -74,7 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = JSON.parse(xhr.responseText);
 
             if (xhr.status === 200) {
-                window.location.reload();
+                updateUploadStatus('success', 'Upload complete!');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
             } else {
                 showError(response.error || 'Upload failed. Please try again.');
             }
