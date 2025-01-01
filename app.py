@@ -150,6 +150,7 @@ def upload_file():
                         try:
                             index.upsert(
                                 vectors=vectors_to_upsert,
+
                                 namespace=""  # Using default namespace
                             )
                             vector_id = base_vector_id  # Store the base vector ID
