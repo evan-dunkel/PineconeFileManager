@@ -28,8 +28,7 @@ try:
 
     # List existing indexes
     existing_indexes = pinecone_client.list_indexes()
-    logging.info(
-        f"Available indexes: {[idx.name for idx in existing_indexes]}")
+    logging.info(f"Available indexes: {[idx.name for idx in existing_indexes]}")
 
     # Create index if it doesn't exist
     if not any(idx.name == pinecone_index_name for idx in existing_indexes):
@@ -50,8 +49,7 @@ try:
         vector_store = pinecone_client.Index(pinecone_index_name)
 
         # Verify the index object
-        logging.info(
-            f"Successfully connected to Pinecone index: {pinecone_index_name}")
+        logging.info(f"Successfully connected to Pinecone index: {pinecone_index_name}")
         logging.info(f"Index type: {type(vector_store)}")
         logging.info(f"Index methods: {dir(vector_store)}")
     except Exception as e:
