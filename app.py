@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, redirect, flash, url_for, jso
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 from utils import (
     generate_thumbnail, generate_pdf_preview, get_mime_type, 
     is_image, is_pdf, get_file_icon, extract_text_from_file,
@@ -18,13 +18,23 @@ logging.basicConfig(level=logging.DEBUG)
 try:
     pc = Pinecone(api_key=os.environ.get('PINECONE_API_KEY'))
     index_name = "file-manager"
+
+    # List existing indexes
+    existing_indexes = [index.name for index in pc.list_indexes()]
+
     # Create index if it doesn't exist
-    if index_name not in pc.list_indexes():
+    if index_name not in existing_indexes:
         pc.create_index(
             name=index_name,
             dimension=1536,  # OpenAI embedding dimension
-            metric="cosine"
+            metric="cosine",
+            spec=ServerlessSpec(
+                cloud="aws",
+                region="us-west-2"
+            )
         )
+
+    # Get the index
     index = pc.Index(index_name)
     logging.info("Successfully connected to Pinecone")
 except Exception as e:
@@ -96,7 +106,7 @@ def upload_file():
                     # Use file ID as vector ID
                     vector_id = f"file_{filename}"
 
-                    # Get embeddings from text using Pinecone
+                    # Get embeddings from text using OpenAI's text-embedding-ada-002 model
                     response = pc.embed(
                         texts=[text_content],
                         model_name="text-embedding-ada-002"
@@ -110,13 +120,15 @@ def upload_file():
                                 'values': response.embeddings[0],
                                 'metadata': {
                                     'filename': filename,
-                                    'mime_type': mime_type
+                                    'mime_type': mime_type,
+                                    'text_content': text_content[:1000]  # Store first 1000 chars of content
                                 }
                             }]
                         )
                         logging.info(f"Successfully vectorized file: {filename}")
                 except Exception as e:
                     logging.error(f"Error vectorizing file: {e}")
+                    return jsonify({'error': f'Error vectorizing file: {str(e)}'}), 500
 
             # Create database entry
             new_file = models.File(
