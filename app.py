@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.utils import secure_filename
 from pinecone import Pinecone, ServerlessSpec
+from openai import OpenAI
 from utils import (
     generate_thumbnail, generate_pdf_preview, get_mime_type, 
     is_image, is_pdf, get_file_icon, extract_text_from_file,
@@ -13,6 +14,9 @@ from utils import (
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
 # Initialize Pinecone with proper error handling
 try:
@@ -101,23 +105,26 @@ def upload_file():
             vector_id = None
 
             # Generate embedding and store in Pinecone
-            if text_content and pc and index:
+            if text_content and client and index:
                 try:
                     # Use file ID as vector ID
                     vector_id = f"file_{filename}"
 
-                    # Get embeddings from text using OpenAI's text-embedding-ada-002 model
-                    response = pc.embed(
-                        texts=[text_content],
-                        model_name="text-embedding-ada-002"
+                    # Generate embeddings using OpenAI
+                    embedding_response = client.embeddings.create(
+                        model="text-embedding-ada-002",
+                        input=text_content
                     )
 
-                    if response and response.embeddings:
+                    if embedding_response and embedding_response.data:
+                        # Get the embedding vector
+                        embedding_vector = embedding_response.data[0].embedding
+
                         # Upsert the vector to Pinecone
                         index.upsert(
                             vectors=[{
                                 'id': vector_id,
-                                'values': response.embeddings[0],
+                                'values': embedding_vector,
                                 'metadata': {
                                     'filename': filename,
                                     'mime_type': mime_type,
