@@ -9,7 +9,7 @@ from openai import OpenAI
 from utils import (
     generate_thumbnail, generate_pdf_preview, get_mime_type, 
     is_image, is_pdf, get_file_icon, extract_text_from_file,
-    IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS
+    IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, chunk_text
 )
 
 # Configure logging
@@ -107,32 +107,48 @@ def upload_file():
             # Generate embedding and store in Pinecone
             if text_content and client and index:
                 try:
-                    # Use file ID as vector ID
-                    vector_id = f"file_{filename}"
+                    # Generate base vector_id for the file
+                    base_vector_id = f"file_{filename}"
 
-                    # Generate embeddings using OpenAI
-                    embedding_response = client.embeddings.create(
-                        model="text-embedding-ada-002",
-                        input=text_content
-                    )
+                    # Chunk the text content
+                    chunks = chunk_text(text_content)
+                    logging.info(f"Split document into {len(chunks)} chunks")
 
-                    if embedding_response and embedding_response.data:
-                        # Get the embedding vector
-                        embedding_vector = embedding_response.data[0].embedding
+                    vectors_to_upsert = []
 
-                        # Upsert the vector to Pinecone
-                        index.upsert(
-                            vectors=[{
-                                'id': vector_id,
-                                'values': embedding_vector,
+                    # Process each chunk
+                    for chunk_idx, chunk in enumerate(chunks):
+                        # Generate embeddings using OpenAI
+                        embedding_response = client.embeddings.create(
+                            model="text-embedding-ada-002",
+                            input=chunk
+                        )
+
+                        if embedding_response and embedding_response.data:
+                            # Create a unique vector ID for each chunk
+                            chunk_vector_id = f"{base_vector_id}_chunk_{chunk_idx}"
+
+                            # Add vector to the batch
+                            vectors_to_upsert.append({
+                                'id': chunk_vector_id,
+                                'values': embedding_response.data[0].embedding,
                                 'metadata': {
                                     'filename': filename,
                                     'mime_type': mime_type,
-                                    'text_content': text_content[:1000]  # Store first 1000 chars of content
+                                    'chunk_index': chunk_idx,
+                                    'total_chunks': len(chunks),
+                                    'text_content': chunk[:1000],  # Store first 1000 chars of chunk
+                                    'is_chunk': True,
+                                    'parent_file': base_vector_id
                                 }
-                            }]
-                        )
-                        logging.info(f"Successfully vectorized file: {filename}")
+                            })
+
+                    # Batch upsert all chunks to Pinecone
+                    if vectors_to_upsert:
+                        index.upsert(vectors=vectors_to_upsert)
+                        vector_id = base_vector_id  # Store the base vector ID
+                        logging.info(f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks")
+
                 except Exception as e:
                     logging.error(f"Error vectorizing file: {e}")
                     return jsonify({'error': f'Error vectorizing file: {str(e)}'}), 500

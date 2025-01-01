@@ -7,10 +7,56 @@ from pdf2image import convert_from_path
 import tempfile
 import PyPDF2
 import docx2txt
+import re
 
 THUMBNAIL_SIZE = (200, 200)
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt'}
+CHUNK_SIZE = 4000  # Target size for each text chunk (in characters)
+CHUNK_OVERLAP = 200  # Number of characters to overlap between chunks
+
+def chunk_text(text):
+    """Split text into smaller chunks with overlap"""
+    chunks = []
+    if not text:
+        return chunks
+
+    start = 0
+    text_length = len(text)
+
+    while start < text_length:
+        # Find the end of the current chunk
+        end = start + CHUNK_SIZE
+
+        # If this is not the last chunk, try to break at a sentence or paragraph
+        if end < text_length:
+            # Look for natural breakpoints in the overlap region
+            look_ahead = min(end + CHUNK_OVERLAP, text_length)
+            # Try to find sentence endings (.!?) followed by space or newline
+            breakpoint_regex = r'[.!?]\s+|[\n\r]+|[.!?]$'
+
+            # Find last sentence break in the overlap region
+            last_break = -1
+            for match in re.finditer(breakpoint_regex, text[end:look_ahead]):
+                last_break = end + match.end()
+
+            if last_break != -1:
+                end = last_break
+            else:
+                # If no sentence break found, try to break at last space
+                last_space = text.rfind(' ', end, look_ahead)
+                if last_space != -1:
+                    end = last_space
+
+        # Extract the chunk and clean it
+        chunk = text[start:end].strip()
+        if chunk:  # Only add non-empty chunks
+            chunks.append(chunk)
+
+        # Move the start position, ensuring overlap
+        start = max(start + CHUNK_SIZE - CHUNK_OVERLAP, end)
+
+    return chunks
 
 def get_mime_type(filename):
     """Get the MIME type of a file"""
