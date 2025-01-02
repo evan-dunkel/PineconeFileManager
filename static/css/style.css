@@ -50,17 +50,217 @@ body {
 .stage-indicator {
     display: none;
     justify-content: space-between;
-    margin: 1rem 0;
+    margin: 2rem 0;
     opacity: 0;
     height: 0;
     overflow: hidden;
-    transition: opacity 0.3s ease, height 0.3s ease;
+    transition: all 0.3s ease;
+    width: 100%;
+    padding: 0 2rem;
 }
 
 .stage-indicator.active {
     display: flex;
     opacity: 1;
     height: auto;
+    margin: 2rem 0;
+}
+
+.stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    opacity: 0.4;
+    transition: opacity 0.3s ease;
+    padding: 0 1rem;
+}
+
+.stage::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(50% + 2rem);
+    width: calc(100% - 4rem);
+    height: 2px;
+    background-color: var(--light-gray);
+    z-index: 0;
+}
+
+.stage:last-child::after {
+    display: none;
+}
+
+.stage-icon {
+    width: 3rem;
+    height: 3rem;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    border: 2px solid var(--light-gray);
+    transition: all 0.3s ease;
+    color: var(--secondary-color);
+    margin-bottom: 0.75rem;
+}
+
+.stage-label {
+    font-size: 0.875rem;
+    color: var(--secondary-color);
+    margin-top: 0.5rem;
+}
+
+.stage.active {
+    opacity: 1;
+}
+
+.stage.completed {
+    opacity: 1;
+}
+
+.stage.active .stage-icon {
+    border-color: var(--primary-color);
+    transform: scale(1.1);
+    color: var(--primary-color);
+}
+
+.stage.completed .stage-icon {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+}
+
+.progress-container {
+    display: none;
+    width: 100%;
+    margin: 2rem 0;
+    padding: 0 2rem;
+}
+
+.progress-container.active {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+.progress {
+    height: 0.5rem;
+    background-color: var(--light-gray);
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin: 0;
+}
+
+.progress-bar {
+    width: 0;
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -200%;
+    width: 200%;
+    height: 100%;
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.4) 25%,
+        rgba(255, 255, 255, 0.2) 50%
+    );
+    animation: shimmer 2s infinite linear;
+}
+
+.upload-status {
+    margin-top: 2rem;
+    display: none;
+    align-items: center;
+    gap: 1rem;
+    justify-content: center;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.upload-status.active {
+    display: flex;
+    animation: slideDown 0.3s ease;
+}
+
+.upload-status-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.upload-status-icon.success {
+    color: var(--success-color);
+    animation: bounce 0.5s ease;
+}
+
+.upload-status-icon.error {
+    color: var(--danger-color);
+    animation: shake 0.5s ease;
+}
+
+.upload-status-icon.processing {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(200%);
+    }
 }
 
 .file-list {
@@ -152,201 +352,6 @@ body {
     justify-content: flex-end;
 }
 
-.progress-container {
-    position: relative;
-    margin: 1rem 0;
-    background-color: var(--light-gray);
-    border-radius: 0.25rem;
-    overflow: hidden;
-    height: 0.5rem;
-    display: none;
-}
-
-.progress-container.active {
-    display: block;
-    animation: slideDown 0.3s ease;
-}
-
-.progress-bar {
-    width: 0;
-    height: 100%;
-    background-color: var(--primary-color);
-    transition: width 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.progress-bar::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -200%;
-    width: 200%;
-    height: 100%;
-    background-image: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.2) 0%,
-        rgba(255, 255, 255, 0.4) 25%,
-        rgba(255, 255, 255, 0.2) 50%
-    );
-    animation: shimmer 2s infinite linear;
-}
-
-@keyframes shimmer {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(200%);
-    }
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes bounce {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-5px);
-    }
-}
-
-.upload-status {
-    margin-top: 1rem;
-    display: none;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-}
-
-.upload-status.active {
-    display: flex;
-    animation: slideDown 0.3s ease;
-}
-
-.upload-status-icon {
-    width: 1.5rem;
-    height: 1.5rem;
-    transition: transform 0.3s ease;
-}
-
-.upload-status-icon.success {
-    color: var(--success-color);
-    animation: bounce 0.5s ease;
-}
-
-.upload-status-icon.error {
-    color: var(--danger-color);
-    animation: shake 0.5s ease;
-}
-
-.upload-status-icon.processing {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes shake {
-    0%, 100% {
-        transform: translateX(0);
-    }
-    25% {
-        transform: translateX(-5px);
-    }
-    75% {
-        transform: translateX(5px);
-    }
-}
-
-.stage-indicator {
-    display: none;
-    justify-content: space-between;
-    margin: 1rem 0;
-    opacity: 0;
-    height: 0;
-    overflow: hidden;
-    transition: opacity 0.3s ease, height 0.3s ease;
-}
-
-.stage-indicator.active {
-    display: flex;
-    opacity: 1;
-    height: auto;
-}
-
-.stage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    flex: 1;
-    opacity: 0.4;
-    transition: opacity 0.3s ease;
-}
-
-.stage::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: calc(50% + 20px);
-    width: calc(100% - 40px);
-    height: 2px;
-    background-color: var(--light-gray);
-    z-index: 0;
-}
-
-.stage:last-child::after {
-    display: none;
-}
-
-.stage-icon {
-    width: 2rem;
-    height: 2rem;
-    background-color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 1;
-    border: 2px solid var(--light-gray);
-    transition: all 0.3s ease;
-    color: var(--secondary-color);
-}
-
-.stage.active {
-    opacity: 1;
-}
-
-.stage.completed {
-    opacity: 1;
-}
-
-.stage.active .stage-icon {
-    border-color: var(--primary-color);
-    transform: scale(1.1);
-    color: var(--primary-color);
-}
-
-.stage.completed .stage-icon {
-    background-color: var(--success-color);
-    border-color: var(--success-color);
-    color: white;
-}
 
 .alert {
     margin-top: 1rem;
@@ -364,71 +369,6 @@ body {
 
 .btn:active {
     transform: translateY(0);
-}
-
-.progress {
-    height: 0.5rem;
-    margin: 1rem 0;
-    background-color: var(--light-gray);
-    border-radius: 0.25rem;
-    overflow: hidden;
-    display: none;
-}
-
-.progress.active {
-    display: block;
-}
-
-.progress-bar {
-    width: 0;
-    height: 100%;
-    background-color: var(--primary-color);
-    transition: width 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.progress-bar::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -200%;
-    width: 200%;
-    height: 100%;
-    background-image: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.2) 0%,
-        rgba(255, 255, 255, 0.4) 25%,
-        rgba(255, 255, 255, 0.2) 50%
-    );
-    animation: shimmer 2s infinite linear;
-}
-
-.upload-status {
-    margin-top: 1rem;
-    display: none;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.upload-status.active {
-    display: flex;
-}
-
-.upload-status-icon {
-    width: 1.5rem;
-    height: 1.5rem;
-    animation: spin 1s linear infinite;
-}
-
-.upload-status-icon.success {
-    color: var(--success-color);
-    animation: none;
-}
-
-.upload-status-icon.error {
-    color: var(--danger-color);
-    animation: none;
 }
 
 .preview-content {
@@ -484,10 +424,4 @@ body {
     width: 48px;
     height: 48px;
     animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    100% {
-        transform: rotate(360deg);
-    }
 }
