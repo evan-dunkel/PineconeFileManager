@@ -47,6 +47,22 @@ body {
     transform: scale(1.02);
 }
 
+.stage-indicator {
+    display: none;
+    justify-content: space-between;
+    margin: 1rem 0;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, height 0.3s ease;
+}
+
+.stage-indicator.active {
+    display: flex;
+    opacity: 1;
+    height: auto;
+}
+
 .file-list {
     margin-top: 2rem;
 }
@@ -257,15 +273,19 @@ body {
 }
 
 .stage-indicator {
-    display: flex;
+    display: none;
     justify-content: space-between;
     margin: 1rem 0;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, height 0.3s ease;
 }
 
 .stage-indicator.active {
+    display: flex;
     opacity: 1;
+    height: auto;
 }
 
 .stage {
