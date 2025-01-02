@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const uploadZone = document.querySelector('.upload-zone');
+    const uploadContent = document.querySelector('.upload-content');
     const fileInput = document.querySelector('#file-input');
     const progressBar = document.querySelector('.progress-bar');
     const progressContainer = document.querySelector('.progress-container');
@@ -11,11 +12,25 @@ document.addEventListener('DOMContentLoaded', function() {
     let processingStartTime = null;
     let shouldShowDetailedStatus = false;
 
+    function showProcessingUI() {
+        uploadContent.classList.add('hidden');
+        progressContainer.classList.add('active');
+        stageIndicator.classList.add('active');
+    }
+
+    function resetUI() {
+        uploadContent.classList.remove('hidden');
+        progressContainer.classList.remove('active');
+        stageIndicator.classList.remove('active');
+        uploadStatus.classList.remove('active');
+        progressBar.style.width = '0%';
+        processingStartTime = null;
+        shouldShowDetailedStatus = false;
+    }
+
     function updateStage(stageName) {
         const stages = ['upload', 'analyze', 'process', 'complete'];
         const currentIndex = stages.indexOf(stageName);
-
-        stageIndicator.classList.add('active');
 
         stages.forEach((stage, index) => {
             const stageElement = document.querySelector(`.stage[data-stage="${stage}"]`);
@@ -33,6 +48,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateUploadStatus(status, message, forceShow = false) {
         const now = Date.now();
+
+        if (status === 'uploading') {
+            showProcessingUI();
+        }
 
         // Start timing when processing begins
         if (status === 'analyzing' && !processingStartTime) {
@@ -58,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadStatusText.textContent = 'Processing...';
         }
 
-        // Update icon and stage regardless of timing
         let iconName = 'loader';
         let stageName = 'upload';
 
@@ -78,9 +96,11 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'success':
                 iconName = 'check-circle';
                 stageName = 'complete';
+                resetUI();
                 break;
             case 'error':
                 iconName = 'alert-circle';
+                resetUI();
                 break;
         }
 
@@ -89,8 +109,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (status === 'success' || status === 'error') {
             uploadStatusIcon.classList.add(status);
-            processingStartTime = null;
-            shouldShowDetailedStatus = false;
         } else {
             uploadStatusIcon.classList.add('processing');
         }
@@ -139,11 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showError(message) {
         updateUploadStatus('error', message);
-        setTimeout(() => {
-            uploadStatus.classList.remove('active');
-            progressContainer.classList.remove('active');
-            stageIndicator.classList.remove('active');
-        }, 5000);
     }
 
     function handleFiles(files) {
@@ -184,9 +197,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateUploadStatus('processing', response.message || 'Vectorizing content...');
                 } else {
                     updateUploadStatus('success', 'Upload complete!');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
                 }
             } else {
                 const response = JSON.parse(xhr.responseText);

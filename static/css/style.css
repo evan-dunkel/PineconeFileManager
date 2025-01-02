@@ -11,6 +11,17 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.upload-content {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.upload-content.hidden {
+    opacity: 0;
+    transform: translateY(-20px);
+    pointer-events: none;
+    position: absolute;
+}
+
 .upload-zone {
     border: 2px dashed #ccc;
     border-radius: 4px;
@@ -18,6 +29,11 @@ body {
     text-align: center;
     background-color: white;
     transition: all 0.3s ease;
+    position: relative;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .upload-zone.dragover {
