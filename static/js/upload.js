@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'success':
                 iconName = 'check-circle';
                 stageName = 'complete';
-                // Keep success state visible until page refresh
+                // Don't reset UI on success, let the page refresh handle it
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);
