@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const uploadStatusText = uploadStatus.querySelector('.upload-status-text');
     const stageIndicator = document.querySelector('.stage-indicator');
 
+    let processingStartTime = null;
+    let shouldShowDetailedStatus = false;
+
     function updateStage(stageName) {
         const stages = ['upload', 'analyze', 'process', 'complete'];
         const currentIndex = stages.indexOf(stageName);
@@ -28,11 +31,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function updateUploadStatus(status, message) {
-        uploadStatus.classList.add('active');
-        uploadStatusText.textContent = message;
+    function updateUploadStatus(status, message, forceShow = false) {
+        const now = Date.now();
 
-        // Update icon and stage based on status
+        // Start timing when processing begins
+        if (status === 'analyzing' && !processingStartTime) {
+            processingStartTime = now;
+            shouldShowDetailedStatus = false;
+            setTimeout(() => {
+                shouldShowDetailedStatus = true;
+                // Only update message if we're still processing
+                if (uploadStatus.classList.contains('active') && !uploadStatus.querySelector('.success')) {
+                    uploadStatusText.textContent = message;
+                }
+            }, 5000);
+        }
+
+        // Show status immediately for upload progress, success, and error states
+        const showImmediately = status === 'uploading' || status === 'success' || status === 'error' || forceShow;
+
+        // For processing states, only show detailed message if enough time has passed
+        if (showImmediately || shouldShowDetailedStatus) {
+            uploadStatus.classList.add('active');
+            uploadStatusText.textContent = message;
+        } else if (status === 'analyzing' || status === 'processing') {
+            uploadStatusText.textContent = 'Processing...';
+        }
+
+        // Update icon and stage regardless of timing
         let iconName = 'loader';
         let stageName = 'upload';
 
@@ -63,6 +89,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (status === 'success' || status === 'error') {
             uploadStatusIcon.classList.add(status);
+            processingStartTime = null;
+            shouldShowDetailedStatus = false;
         } else {
             uploadStatusIcon.classList.add('processing');
         }
@@ -126,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         progressContainer.classList.add('active');
         progressBar.style.width = '0%';
-        updateUploadStatus('uploading', 'Preparing to upload file...');
+        updateUploadStatus('uploading', 'Preparing to upload file...', true);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload', true);
@@ -136,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const percentComplete = (e.loaded / e.total) * 100;
                 progressBar.style.width = percentComplete + '%';
                 if (percentComplete < 100) {
-                    updateUploadStatus('uploading', `Uploading: ${Math.round(percentComplete)}%`);
+                    updateUploadStatus('uploading', `Uploading: ${Math.round(percentComplete)}%`, true);
                 } else {
                     updateUploadStatus('analyzing', 'Analyzing file content...');
                 }
