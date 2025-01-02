@@ -28,7 +28,8 @@ try:
 
     # List existing indexes
     existing_indexes = pinecone_client.list_indexes()
-    logging.info(f"Available indexes: {[idx.name for idx in existing_indexes]}")
+    logging.info(
+        f"Available indexes: {[idx.name for idx in existing_indexes]}")
 
     # Create index if it doesn't exist
     if not any(idx.name == pinecone_index_name for idx in existing_indexes):
@@ -49,7 +50,8 @@ try:
         vector_store = pinecone_client.Index(pinecone_index_name)
 
         # Verify the index object
-        logging.info(f"Successfully connected to Pinecone index: {pinecone_index_name}")
+        logging.info(
+            f"Successfully connected to Pinecone index: {pinecone_index_name}")
         logging.info(f"Index type: {type(vector_store)}")
         logging.info(f"Index methods: {dir(vector_store)}")
     except Exception as e:
@@ -118,16 +120,22 @@ def upload_file():
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
+            # Initial response to show processing status
+            response = {'status': 'processing', 'message': 'File uploaded, generating preview...'}
+
             thumbnail_path = None
             if is_image(mime_type):
                 thumbnail_path = generate_thumbnail(file_path, filename)
+                response['message'] = 'Processing image...'
             elif is_pdf(mime_type):
                 thumbnail_path = generate_pdf_preview(file_path, filename)
+                response['message'] = 'Generating PDF preview...'
                 logging.info(f"Generated PDF preview: {thumbnail_path}")
 
             # Extract text content
             text_content = extract_text_from_file(file_path, mime_type)
             vector_id = None
+            response['message'] = 'Analyzing content...'
 
             # Generate embedding and store in Pinecone
             if text_content and client and vector_store:
@@ -138,11 +146,14 @@ def upload_file():
                     # Chunk the text content
                     chunks = chunk_text(text_content)
                     logging.info(f"Split document into {len(chunks)} chunks")
+                    response['message'] = f'Vectorizing content ({len(chunks)} sections)...'
 
                     vectors_to_upsert = []
 
                     # Process each chunk
                     for chunk_idx, chunk in enumerate(chunks):
+                        response['message'] = f'Vectorizing section {chunk_idx + 1} of {len(chunks)}...'
+
                         # Generate embeddings using OpenAI
                         embedding_response = client.embeddings.create(
                             model="text-embedding-ada-002", input=chunk)
@@ -153,18 +164,14 @@ def upload_file():
 
                             # Add vector to the batch
                             vectors_to_upsert.append({
-                                'id':
-                                chunk_vector_id,
-                                'values':
-                                embedding_response.data[0].embedding,
+                                'id': chunk_vector_id,
+                                'values': embedding_response.data[0].embedding,
                                 'metadata': {
                                     'filename': filename,
                                     'mime_type': mime_type,
                                     'chunk_index': chunk_idx,
                                     'total_chunks': len(chunks),
-                                    'text_content':
-                                    chunk[:
-                                          1000],  # Store first 1000 chars of chunk
+                                    'text_content': chunk[:1000],  # Store first 1000 chars of chunk
                                     'is_chunk': True,
                                     'parent_file': base_vector_id
                                 }
@@ -172,48 +179,42 @@ def upload_file():
 
                     # Batch upsert all chunks to Pinecone
                     if vectors_to_upsert:
-                        # Use the correct Pinecone upsert method
-                        try:
-                            if not hasattr(vector_store, 'upsert'):
-                                logging.error(
-                                    f"Index object does not have upsert method. Index type: {type(vector_store)}"
-                                )
-                                raise AttributeError("Invalid index object")
+                        response['message'] = 'Storing vectors in database...'
 
+                        try:
                             # Convert vectors to the correct format for Pinecone 5.0.1
                             vectors_for_upsert = []
                             for vector in vectors_to_upsert:
                                 vectors_for_upsert.append({
-                                    'id':
-                                    vector['id'],
-                                    'values':
-                                    vector['values'],
-                                    'metadata':
-                                    vector['metadata']
+                                    'id': vector['id'],
+                                    'values': vector['values'],
+                                    'metadata': vector['metadata']
                                 })
 
                             # Use the new upsert format
                             vector_store.upsert(vectors=vectors_for_upsert)
                             vector_id = base_vector_id  # Store the base vector ID
                             logging.info(
-                                f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks"
-                            )
+                                f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks")
+                            response['message'] = 'Finalizing...'
+
                         except Exception as e:
                             logging.error(f"Pinecone upsert error: {e}")
                             raise
 
                 except Exception as e:
                     logging.error(f"Error vectorizing file: {e}")
-                    return jsonify(
-                        {'error': f'Error vectorizing file: {str(e)}'}), 500
+                    return jsonify({'error': f'Error vectorizing file: {str(e)}'}), 500
 
             # Create database entry
-            new_file = models.File(filename=filename,
-                                   filepath=file_path,
-                                   mime_type=mime_type,
-                                   thumbnail_path=thumbnail_path,
-                                   vector_id=vector_id,
-                                   processed=bool(vector_id))
+            new_file = models.File(
+                filename=filename,
+                filepath=file_path,
+                mime_type=mime_type,
+                thumbnail_path=thumbnail_path,
+                vector_id=vector_id,
+                processed=bool(vector_id)
+            )
             db.session.add(new_file)
             db.session.commit()
 
@@ -241,18 +242,24 @@ def delete_file(file_id):
         # Delete vector from Pinecone if it exists
         if file.vector_id and vector_store:
             try:
-                # Delete all chunks associated with this file using metadata filtering
-                # First, find all vectors with this parent_file in metadata
+                # Generate the list of potential chunk IDs
+                vector_ids = []
+                base_id = file.vector_id
+
+                # We know the format is "file_filename_chunk_X"
+                for i in range(100):  # Set a reasonable upper limit
+                    vector_ids.append(f"{base_id}_chunk_{i}")
+
+                # Delete all vectors associated with this file
                 try:
-                    # Using the correct delete method for serverless indexes with metadata filtering
+                    logging.info(f"Deleting vectors for file: {file.filename}")
                     vector_store.delete(
-                        filter={
-                            "parent_file": file.vector_id
-                        }
+                        ids=vector_ids,
+                        namespace=""  # Add empty namespace if required
                     )
-                    logging.info(f"Deleted vectors for file: {file.filename} using metadata filter")
+                    logging.info(f"Successfully deleted vectors for file: {file.filename}")
                 except Exception as e:
-                    logging.error(f"Error deleting vectors with metadata filter: {e}")
+                    logging.error(f"Error deleting vectors: {e}")
                     raise
 
             except Exception as e:
@@ -261,17 +268,21 @@ def delete_file(file_id):
         # Delete the actual file
         if os.path.exists(file.filepath):
             os.remove(file.filepath)
+            logging.info(f"Deleted file: {file.filepath}")
+
         # Delete thumbnail if exists
         if file.thumbnail_path:
             thumbnail_path = os.path.join('static', file.thumbnail_path)
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
+                logging.info(f"Deleted thumbnail: {thumbnail_path}")
+
         db.session.delete(file)
         db.session.commit()
-        flash('File deleted successfully')
+        flash('File and associated data deleted successfully')
     except Exception as e:
         logging.error(f"Error deleting file: {e}")
-        flash('Error deleting file')
+        flash('Error deleting file and associated data')
     return redirect(url_for('index'))
 
 
