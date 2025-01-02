@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'success':
                 iconName = 'check-circle';
                 stageName = 'complete';
-                resetUI();
+                // Don't reset UI on success, let the page refresh handle it
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);
@@ -224,7 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
 
                 if (fileCard) {
-                    deleteStatus.style.animation = 'slideDown 0.3s ease';
                     fileCard.appendChild(deleteStatus);
                     feather.replace();
 
