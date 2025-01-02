@@ -9,7 +9,7 @@ from pinecone import Pinecone, ServerlessSpec
 from openai import OpenAI
 from utils import (generate_thumbnail, generate_pdf_preview, get_mime_type,
                    is_image, is_pdf, get_file_icon, extract_text_from_file,
-                   IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, chunk_text)
+                   IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, chunk_text, generate_title) #Added generate_title import
 import pinecone
 
 # Load environment variables
@@ -80,12 +80,20 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 app.config["UPLOAD_FOLDER"] = "uploads"
 
-# Ensure required directories exist
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-os.makedirs(os.path.join("static", "thumbnails"), exist_ok=True)
-
 # Initialize extensions
 db.init_app(app)
+
+# Initialize database
+with app.app_context():
+    import models  # noqa: F401
+    try:
+        # Drop all tables and recreate them
+        db.drop_all()
+        db.create_all()
+        logging.info("Successfully recreated database tables")
+    except Exception as e:
+        logging.error(f"Error recreating database: {e}")
+        raise
 
 # File upload configuration
 ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(DOCUMENT_EXTENSIONS)
@@ -122,6 +130,9 @@ def upload_file():
 
             # Initial response to show processing status
             response = {'status': 'processing', 'message': 'File uploaded, generating preview...'}
+
+            # Generate display title
+            display_title = generate_title(filename)
 
             thumbnail_path = None
             if is_image(mime_type):
@@ -206,14 +217,15 @@ def upload_file():
                     logging.error(f"Error vectorizing file: {e}")
                     return jsonify({'error': f'Error vectorizing file: {str(e)}'}), 500
 
-            # Create database entry
+            # Create database entry with the new display_title
             new_file = models.File(
                 filename=filename,
                 filepath=file_path,
                 mime_type=mime_type,
                 thumbnail_path=thumbnail_path,
                 vector_id=vector_id,
-                processed=bool(vector_id)
+                processed=bool(vector_id),
+                display_title=display_title
             )
             db.session.add(new_file)
             db.session.commit()
@@ -233,10 +245,10 @@ def serve_file(file_id):
     """Serve the file for preview or download"""
     file = db.get_or_404(models.File, file_id)
 
-    return send_file(file.filepath, 
-                    mimetype=file.mime_type, 
-                    as_attachment=False,
-                    download_name=file.filename)
+    return send_file(file.filepath,
+                     mimetype=file.mime_type,
+                     as_attachment=False,
+                     download_name=file.filename)
 
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
@@ -314,7 +326,8 @@ def rename_file(file_id):
     return redirect(url_for('index'))
 
 
-# Initialize database
-with app.app_context():
-    import models
-    db.create_all()
+if __name__ == '__main__':
+    with app.app_context():
+        import models
+        db.create_all()
+    app.run(debug=True)

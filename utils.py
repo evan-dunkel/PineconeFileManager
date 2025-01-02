@@ -8,6 +8,41 @@ import tempfile
 import PyPDF2
 import docx2txt
 import re
+from openai import OpenAI
+
+client = OpenAI()
+
+def generate_title(filename):
+    """Generate a human-readable title from the filename using OpenAI"""
+    try:
+        # Remove file extension and replace underscores/hyphens with spaces
+        base_name = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ')
+
+        response = client.chat.completions.create(
+            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a file title generator. Generate a clear, concise title from the given filename. "
+                    "Keep it under 50 characters. Do not include file extensions or technical terms. "
+                    "Make it readable and descriptive."
+                },
+                {
+                    "role": "user",
+                    "content": f"Generate a title for this filename: {base_name}"
+                }
+            ],
+            max_tokens=50
+        )
+
+        title = response.choices[0].message.content.strip()
+        # Ensure the title isn't too long
+        if len(title) > 50:
+            title = title[:47] + "..."
+        return title
+    except Exception as e:
+        logging.error(f"Error generating title: {e}")
+        return filename  # Fallback to original filename if generation fails
 
 THUMBNAIL_SIZE = (200, 200)
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}

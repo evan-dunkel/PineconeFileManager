@@ -10,3 +10,4 @@ class File(db.Model):
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     processed = db.Column(db.Boolean, default=False)
     vector_id = db.Column(db.String(64))  # Store Pinecone vector ID
+    display_title = db.Column(db.String(255))  # Store the AI-generated title

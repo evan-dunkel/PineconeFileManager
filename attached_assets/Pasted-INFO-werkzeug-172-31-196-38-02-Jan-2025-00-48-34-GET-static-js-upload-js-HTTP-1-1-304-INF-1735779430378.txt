@@ -1,0 +1,27 @@
+INFO:werkzeug:172.31.196.38 - - [02/Jan/2025 00:48:34] "GET /static/js/upload.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.196.38 - - [02/Jan/2025 00:48:41] "GET /file/2 HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/PineconeFileManager/app.py", line 242, in serve_file
+    return send_file(file.filepath,
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: send_file() got an unexpected keyword argument 'headers'
+INFO:werkzeug:172.31.196.38 - - [02/Jan/2025 00:48:41] "GET /file/2?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.196.38 - - [02/Jan/2025 00:48:42] "GET /file/2?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 304 -
