@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateStage(stageName) {
         const stages = ['upload', 'analyze', 'process', 'complete'];
         const currentIndex = stages.indexOf(stageName);
+        const progressPercentage = ((currentIndex + 1) / stages.length) * 100;
 
         stages.forEach((stage, index) => {
             const stageElement = document.querySelector(`.stage[data-stage="${stage}"]`);
@@ -44,6 +45,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 stageElement.classList.remove('completed', 'active');
             }
         });
+
+        // Update progress bar based on current stage
+        progressBar.style.width = `${progressPercentage}%`;
     }
 
     function updateUploadStatus(status, message, forceShow = false) {
@@ -61,7 +65,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (uploadStatus.classList.contains('active') && !uploadStatus.querySelector('.success')) {
                     uploadStatusText.textContent = message;
                 }
-            }, 5000);
+            }, 3000);
+        }
+
+        // Show progress container for all states except error
+        if (status !== 'error') {
+            progressContainer.classList.add('active');
         }
 
         const showImmediately = status === 'uploading' || status === 'success' || status === 'error' || forceShow;
@@ -75,24 +84,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let iconName = 'loader';
         let stageName = 'upload';
+        let progress = 0;
 
         switch(status) {
             case 'uploading':
                 iconName = 'loader';
                 stageName = 'upload';
+                progress = 25;
                 break;
             case 'analyzing':
                 iconName = 'loader';
                 stageName = 'analyze';
+                progress = 50;
                 break;
             case 'processing':
                 iconName = 'loader';
                 stageName = 'process';
+                progress = 75;
                 break;
             case 'success':
                 iconName = 'check-circle';
                 stageName = 'complete';
-                // Don't reset UI on success, let the page refresh handle it
+                progress = 100;
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);
@@ -103,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
         }
 
+        progressBar.style.width = `${progress}%`;
         uploadStatusIcon.setAttribute('data-feather', iconName);
         uploadStatusIcon.classList.remove('success', 'error', 'processing');
 
