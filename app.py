@@ -241,28 +241,20 @@ def delete_file(file_id):
         # Delete vector from Pinecone if it exists
         if file.vector_id and vector_store:
             try:
-                # Delete all chunks associated with this file
-                # The base vector_id is stored in file.vector_id
-                # Find all vectors with this parent_file in metadata
-                response = vector_store.query(
-                    filter={
-                        "parent_file": file.vector_id
-                    },
-                    top_k=1000,  # Adjust based on your maximum chunks per file
-                    include_metadata=True
-                )
+                # Delete all chunks associated with this file using metadata filtering
+                # First, find all vectors with this parent_file in metadata
+                try:
+                    # Using the correct delete method for serverless indexes with metadata filtering
+                    vector_store.delete(
+                        filter={
+                            "parent_file": file.vector_id
+                        }
+                    )
+                    logging.info(f"Deleted vectors for file: {file.filename} using metadata filter")
+                except Exception as e:
+                    logging.error(f"Error deleting vectors with metadata filter: {e}")
+                    raise
 
-                # Collect all vector IDs to delete
-                vector_ids = []
-                if response and hasattr(response, 'matches'):
-                    vector_ids = [match.id for match in response.matches]
-
-                if vector_ids:
-                    # Using the correct delete method for serverless indexes
-                    vector_store.delete(ids=vector_ids)
-                    logging.info(f"Deleted {len(vector_ids)} vectors for file: {file.filename}")
-                else:
-                    logging.warning(f"No vectors found for file: {file.filename}")
             except Exception as e:
                 logging.error(f"Error deleting vector: {e}")
 
