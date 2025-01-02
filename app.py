@@ -233,17 +233,10 @@ def serve_file(file_id):
     """Serve the file for preview or download"""
     file = db.get_or_404(models.File, file_id)
 
-    # Set the response headers for inline viewing
-    headers = {
-        'Content-Type': file.mime_type,
-        'Content-Disposition': 'inline; filename=' + file.filename
-    }
-
     return send_file(file.filepath, 
                     mimetype=file.mime_type, 
                     as_attachment=False,
-                    download_name=file.filename,
-                    headers=headers)
+                    download_name=file.filename)
 
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
