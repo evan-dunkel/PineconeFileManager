@@ -141,25 +141,28 @@ body {
     color: white;
 }
 
+/* Progress bar specific styles */
 .progress-container {
     display: none;
     width: 100%;
     margin: 2rem 0;
     padding: 0 2rem;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
 .progress-container.active {
     display: block;
     opacity: 1;
-    animation: fadeIn 0.3s ease;
+    height: auto;
 }
 
 .progress {
-    height: 6px;
+    height: 8px;
     background-color: var(--light-gray);
-    border-radius: 3px;
+    border-radius: 4px;
     overflow: hidden;
     margin: 0;
     position: relative;

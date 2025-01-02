@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('file', files[0]);
 
-        progressContainer.classList.add('active');
+        showProcessingUI();
         progressBar.style.width = '0%';
         updateUploadStatus('uploading', 'Preparing to upload file...', true);
 
