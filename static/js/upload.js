@@ -308,8 +308,16 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             img.src = `/file/${fileId}`;
         } else if (mimeType === 'application/pdf') {
+            const pdfUrl = `/file/${fileId}`;
             previewContent.innerHTML = `
-                <iframe src="/file/${fileId}" type="application/pdf"></iframe>
+                <iframe 
+                    src="${pdfUrl}#toolbar=0&navpanes=0"
+                    type="application/pdf"
+                    width="100%"
+                    height="600px"
+                    frameborder="0"
+                    allowfullscreen>
+                </iframe>
             `;
         } else if (mimeType.startsWith('text/') || 
                    mimeType === 'application/json' ||
