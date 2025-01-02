@@ -11,7 +11,36 @@
             <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
                 Browse Files
             </button>
-            <div class="progress">
+
+            <!-- Stage Indicator -->
+            <div class="stage-indicator">
+                <div class="stage" data-stage="upload">
+                    <div class="stage-icon">
+                        <i data-feather="upload"></i>
+                    </div>
+                    <div class="stage-label">Upload</div>
+                </div>
+                <div class="stage" data-stage="analyze">
+                    <div class="stage-icon">
+                        <i data-feather="cpu"></i>
+                    </div>
+                    <div class="stage-label">Analyze</div>
+                </div>
+                <div class="stage" data-stage="process">
+                    <div class="stage-icon">
+                        <i data-feather="database"></i>
+                    </div>
+                    <div class="stage-label">Process</div>
+                </div>
+                <div class="stage" data-stage="complete">
+                    <div class="stage-icon">
+                        <i data-feather="check"></i>
+                    </div>
+                    <div class="stage-label">Complete</div>
+                </div>
+            </div>
+
+            <div class="progress-container">
                 <div class="progress-bar" role="progressbar" style="width: 0%"></div>
             </div>
             <div class="upload-status">
@@ -35,12 +64,6 @@
                                 <img src="{{ url_for('static', filename=file.thumbnail_path) }}" 
                                      alt="{{ file.filename }}" 
                                      class="img-thumbnail">
-                            {% elif file.mime_type == 'application/pdf' %}
-                                <a href="{{ url_for('serve_file', file_id=file.id) }}" target="_blank" 
-                                   class="text-decoration-none">
-                                    <i data-feather="{{ get_file_icon(file.mime_type) }}" 
-                                       class="preview-icon text-danger"></i>
-                                </a>
                             {% else %}
                                 <i data-feather="{{ get_file_icon(file.mime_type) }}" 
                                    class="preview-icon"></i>
@@ -53,13 +76,6 @@
                             </small>
                         </div>
                         <div class="file-actions">
-                            {% if file.mime_type == 'application/pdf' %}
-                                <a href="{{ url_for('serve_file', file_id=file.id) }}" 
-                                   target="_blank"
-                                   class="btn btn-sm btn-outline-primary">
-                                    <i data-feather="eye"></i>
-                                </a>
-                            {% endif %}
                             <button class="btn btn-sm btn-outline-primary rename-btn"
                                     data-file-id="{{ file.id }}"
                                     data-file-name="{{ file.filename }}">
@@ -68,8 +84,7 @@
                             <form action="{{ url_for('delete_file', file_id=file.id) }}" 
                                   method="POST" 
                                   class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Are you sure you want to delete this file?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
                                     <i data-feather="trash-2"></i>
                                 </button>
                             </form>

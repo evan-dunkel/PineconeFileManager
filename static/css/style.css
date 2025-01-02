@@ -17,12 +17,13 @@ body {
     padding: 2rem;
     text-align: center;
     background-color: white;
-    transition: border-color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .upload-zone.dragover {
     border-color: var(--primary-color);
     background-color: rgba(0, 123, 255, 0.1);
+    transform: scale(1.02);
 }
 
 .file-list {
@@ -48,6 +49,12 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
+    transition: transform 0.3s ease;
+}
+
+.file-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .file-preview {
@@ -58,18 +65,25 @@ body {
     background-color: var(--light-gray);
     border-radius: 4px;
     margin-bottom: 1rem;
+    transition: all 0.3s ease;
 }
 
 .file-preview img {
     max-height: 100%;
     max-width: 100%;
     object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.file-preview:hover img {
+    transform: scale(1.05);
 }
 
 .preview-icon {
     width: 48px;
     height: 48px;
     color: var(--secondary-color);
+    transition: transform 0.3s ease;
 }
 
 .file-info {
@@ -89,6 +103,216 @@ body {
     gap: 0.5rem;
     margin-top: 1rem;
     justify-content: flex-end;
+}
+
+.progress-container {
+    position: relative;
+    margin: 1rem 0;
+    background-color: var(--light-gray);
+    border-radius: 0.25rem;
+    overflow: hidden;
+    height: 0.5rem;
+    display: none;
+}
+
+.progress-container.active {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+.progress-bar {
+    width: 0;
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -200%;
+    width: 200%;
+    height: 100%;
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.4) 25%,
+        rgba(255, 255, 255, 0.2) 50%
+    );
+    animation: shimmer 2s infinite linear;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(200%);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+.upload-status {
+    margin-top: 1rem;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.upload-status.active {
+    display: flex;
+    animation: slideDown 0.3s ease;
+}
+
+.upload-status-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.upload-status-icon.success {
+    color: var(--success-color);
+    animation: bounce 0.5s ease;
+}
+
+.upload-status-icon.error {
+    color: var(--danger-color);
+    animation: shake 0.5s ease;
+}
+
+.upload-status-icon.processing {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+.stage-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin: 1rem 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stage-indicator.active {
+    opacity: 1;
+}
+
+.stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+}
+
+.stage::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(50% + 20px);
+    width: calc(100% - 40px);
+    height: 2px;
+    background-color: var(--light-gray);
+    z-index: 0;
+}
+
+.stage:last-child::after {
+    display: none;
+}
+
+.stage-icon {
+    width: 2rem;
+    height: 2rem;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    border: 2px solid var(--light-gray);
+    transition: all 0.3s ease;
+}
+
+.stage.active .stage-icon {
+    border-color: var(--primary-color);
+    transform: scale(1.1);
+}
+
+.stage.completed .stage-icon {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+}
+
+.stage-label {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--secondary-color);
+    text-align: center;
+}
+
+.stage.active .stage-label {
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.alert {
+    margin-top: 1rem;
+    animation: slideDown 0.3s ease;
+}
+
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn:active {
+    transform: translateY(0);
 }
 
 .progress {

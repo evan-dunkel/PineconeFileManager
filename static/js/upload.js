@@ -2,29 +2,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const uploadZone = document.querySelector('.upload-zone');
     const fileInput = document.querySelector('#file-input');
     const progressBar = document.querySelector('.progress-bar');
-    const progress = document.querySelector('.progress');
+    const progressContainer = document.querySelector('.progress-container');
     const uploadStatus = document.querySelector('.upload-status');
     const uploadStatusIcon = uploadStatus.querySelector('.upload-status-icon');
     const uploadStatusText = uploadStatus.querySelector('.upload-status-text');
+    const stageIndicator = document.querySelector('.stage-indicator');
+
+    function updateStage(stageName) {
+        const stages = ['upload', 'analyze', 'process', 'complete'];
+        const currentIndex = stages.indexOf(stageName);
+
+        stageIndicator.classList.add('active');
+
+        stages.forEach((stage, index) => {
+            const stageElement = document.querySelector(`.stage[data-stage="${stage}"]`);
+            if (index < currentIndex) {
+                stageElement.classList.add('completed');
+                stageElement.classList.remove('active');
+            } else if (index === currentIndex) {
+                stageElement.classList.add('active');
+                stageElement.classList.remove('completed');
+            } else {
+                stageElement.classList.remove('completed', 'active');
+            }
+        });
+    }
 
     function updateUploadStatus(status, message) {
         uploadStatus.classList.add('active');
         uploadStatusText.textContent = message;
 
-        // Update icon based on status
+        // Update icon and stage based on status
         let iconName = 'loader';
+        let stageName = 'upload';
+
         switch(status) {
             case 'uploading':
                 iconName = 'upload-cloud';
+                stageName = 'upload';
                 break;
             case 'analyzing':
                 iconName = 'cpu';
+                stageName = 'analyze';
                 break;
             case 'processing':
-                iconName = 'loader';
+                iconName = 'database';
+                stageName = 'process';
                 break;
             case 'success':
                 iconName = 'check-circle';
+                stageName = 'complete';
                 break;
             case 'error':
                 iconName = 'alert-circle';
@@ -32,10 +59,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         uploadStatusIcon.setAttribute('data-feather', iconName);
-        uploadStatusIcon.classList.remove('success', 'error');
+        uploadStatusIcon.classList.remove('success', 'error', 'processing');
+
         if (status === 'success' || status === 'error') {
             uploadStatusIcon.classList.add(status);
+        } else {
+            uploadStatusIcon.classList.add('processing');
         }
+
+        updateStage(stageName);
         feather.replace();
     }
 
@@ -81,7 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUploadStatus('error', message);
         setTimeout(() => {
             uploadStatus.classList.remove('active');
-            progress.classList.remove('active');
+            progressContainer.classList.remove('active');
+            stageIndicator.classList.remove('active');
         }, 5000);
     }
 
@@ -91,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('file', files[0]);
 
-        progress.classList.add('active');
+        progressContainer.classList.add('active');
         progressBar.style.width = '0%';
         updateUploadStatus('uploading', 'Preparing to upload file...');
 
@@ -125,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateUploadStatus('success', 'Upload complete!');
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1000);
+                    }, 1500);
                 }
             } else {
                 const response = JSON.parse(xhr.responseText);
@@ -134,7 +167,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         xhr.onerror = function() {
-            progress.classList.remove('active');
             showError('Upload failed. Please try again.');
         };
 
@@ -147,14 +179,22 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
 
             if (confirm('Are you sure you want to delete this file?')) {
-                const deleteStatus = document.createElement('div');
-                deleteStatus.className = 'alert alert-info';
-                deleteStatus.innerHTML = '<i data-feather="trash-2"></i> Deleting file and associated data...';
-
                 const fileCard = this.closest('.file-card');
+                const deleteStatus = document.createElement('div');
+                deleteStatus.className = 'alert alert-info d-flex align-items-center';
+                deleteStatus.innerHTML = `
+                    <i data-feather="trash-2" class="me-2"></i>
+                    <span>Deleting file and associated data...</span>
+                `;
+
                 if (fileCard) {
+                    deleteStatus.style.animation = 'slideDown 0.3s ease';
                     fileCard.appendChild(deleteStatus);
                     feather.replace();
+
+                    // Add fade-out animation to the card
+                    fileCard.style.transition = 'opacity 0.5s ease';
+                    fileCard.style.opacity = '0.5';
                 }
 
                 this.submit();
@@ -162,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // File rename functionality
+    // File rename functionality with animation
     document.querySelectorAll('.rename-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const fileId = this.dataset.fileId;
@@ -181,7 +221,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+
+                // Add rename animation
+                const fileCard = this.closest('.file-card');
+                const fileNameElement = fileCard.querySelector('.file-name');
+                fileNameElement.style.transition = 'opacity 0.3s ease';
+                fileNameElement.style.opacity = '0';
+
+                setTimeout(() => {
+                    fileNameElement.textContent = newName;
+                    fileNameElement.style.opacity = '1';
+                    form.submit();
+                }, 300);
             }
         });
     });
