@@ -82,21 +82,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         switch(status) {
             case 'uploading':
-                iconName = 'upload-cloud';
+                iconName = 'loader';
                 stageName = 'upload';
                 break;
             case 'analyzing':
-                iconName = 'cpu';
+                iconName = 'loader';
                 stageName = 'analyze';
                 break;
             case 'processing':
-                iconName = 'database';
+                iconName = 'loader';
                 stageName = 'process';
                 break;
             case 'success':
                 iconName = 'check-circle';
                 stageName = 'complete';
                 resetUI();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
                 break;
             case 'error':
                 iconName = 'alert-circle';
@@ -211,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
         xhr.send(formData);
     }
 
-    // File deletion status updates
+    // File deletion functionality
     document.querySelectorAll('form[action^="/delete/"]').forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
