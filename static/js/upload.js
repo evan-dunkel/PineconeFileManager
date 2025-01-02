@@ -277,4 +277,76 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // File preview functionality
+    window.previewFile = function(fileId, mimeType) {
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        const previewContent = document.querySelector('.preview-content');
+        const downloadBtn = document.querySelector('.download-btn');
+
+        // Show loading state
+        previewContent.innerHTML = `
+            <div class="loading">
+                <i data-feather="loader"></i>
+                <span>Loading preview...</span>
+            </div>
+        `;
+        feather.replace();
+
+        // Update download link
+        downloadBtn.href = `/file/${fileId}`;
+
+        // Show the modal
+        modal.show();
+
+        // Determine preview type and load content
+        if (mimeType.startsWith('image/')) {
+            const img = new Image();
+            img.onload = function() {
+                previewContent.innerHTML = '';
+                previewContent.appendChild(img);
+            };
+            img.src = `/file/${fileId}`;
+        } else if (mimeType === 'application/pdf') {
+            previewContent.innerHTML = `
+                <iframe src="/file/${fileId}" type="application/pdf"></iframe>
+            `;
+        } else if (mimeType.startsWith('text/') || 
+                   mimeType === 'application/json' ||
+                   mimeType === 'application/javascript') {
+            fetch(`/file/${fileId}`)
+                .then(response => response.text())
+                .then(text => {
+                    previewContent.innerHTML = `
+                        <pre class="text-preview">${escapeHtml(text)}</pre>
+                    `;
+                })
+                .catch(error => {
+                    previewContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            Error loading preview: ${error.message}
+                        </div>
+                    `;
+                });
+        } else {
+            previewContent.innerHTML = `
+                <div class="text-center p-4">
+                    <i data-feather="file" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
+                    <p>Preview not available for this file type.</p>
+                    <p>Click the download button to view the file.</p>
+                </div>
+            `;
+            feather.replace();
+        }
+    };
+
+    // Helper function to escape HTML special characters
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 });
