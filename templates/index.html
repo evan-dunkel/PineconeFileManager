@@ -61,7 +61,7 @@
             {% for file in files %}
                 <div class="col-md-4 col-lg-3 mb-4">
                     <div class="file-card">
-                        <div class="file-preview" onclick="previewFile('{{ file.id }}', '{{ file.mime_type }}')">
+                        <a href="{{ url_for('serve_file', file_id=file.id) }}" target="_blank" class="file-preview">
                             {% if file.thumbnail_path %}
                                 <img src="{{ url_for('static', filename=file.thumbnail_path) }}" 
                                      alt="{{ file.filename }}" 
@@ -70,7 +70,7 @@
                                 <i data-feather="{{ get_file_icon(file.mime_type) }}" 
                                    class="preview-icon"></i>
                             {% endif %}
-                        </div>
+                        </a>
                         <div class="file-info">
                             <p class="file-name" title="{{ file.filename }}">{{ file.filename }}</p>
                             <small class="text-muted">
@@ -78,11 +78,12 @@
                             </small>
                         </div>
                         <div class="file-actions">
-                            <button class="btn btn-sm btn-outline-primary preview-btn"
-                                    onclick="previewFile('{{ file.id }}', '{{ file.mime_type }}')"
-                                    title="Preview">
-                                <i data-feather="eye"></i>
-                            </button>
+                            <a href="{{ url_for('serve_file', file_id=file.id) }}" 
+                               target="_blank"
+                               class="btn btn-sm btn-outline-primary"
+                               title="Open">
+                                <i data-feather="external-link"></i>
+                            </a>
                             <button class="btn btn-sm btn-outline-primary rename-btn"
                                     data-file-id="{{ file.id }}"
                                     data-file-name="{{ file.filename }}"
@@ -104,29 +105,6 @@
         {% else %}
             <p class="text-muted">No files uploaded yet.</p>
         {% endif %}
-    </div>
-</div>
-
-<!-- Preview Modal -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">File Preview</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="preview-content">
-                    <!-- Preview content will be loaded here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <a href="#" class="btn btn-primary download-btn" download>
-                    <i data-feather="download"></i> Download
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
     </div>
 </div>
 

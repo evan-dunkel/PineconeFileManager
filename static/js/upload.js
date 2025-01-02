@@ -53,23 +53,19 @@ document.addEventListener('DOMContentLoaded', function() {
             showProcessingUI();
         }
 
-        // Start timing when processing begins
         if (status === 'analyzing' && !processingStartTime) {
             processingStartTime = now;
             shouldShowDetailedStatus = false;
             setTimeout(() => {
                 shouldShowDetailedStatus = true;
-                // Only update message if we're still processing
                 if (uploadStatus.classList.contains('active') && !uploadStatus.querySelector('.success')) {
                     uploadStatusText.textContent = message;
                 }
             }, 5000);
         }
 
-        // Show status immediately for upload progress, success, and error states
         const showImmediately = status === 'uploading' || status === 'success' || status === 'error' || forceShow;
 
-        // For processing states, only show detailed message if enough time has passed
         if (showImmediately || shouldShowDetailedStatus) {
             uploadStatus.classList.add('active');
             uploadStatusText.textContent = message;
@@ -120,7 +116,6 @@ document.addEventListener('DOMContentLoaded', function() {
         feather.replace();
     }
 
-    // Drag and drop handlers
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         uploadZone.addEventListener(eventName, preventDefaults, false);
     });
@@ -188,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 3) { // Processing
+            if (xhr.readyState === 3) {
                 updateUploadStatus('processing', 'Processing file...');
             }
         };
@@ -233,7 +228,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     fileCard.appendChild(deleteStatus);
                     feather.replace();
 
-                    // Add fade-out animation to the card
                     fileCard.style.transition = 'opacity 0.5s ease';
                     fileCard.style.opacity = '0.5';
                 }
@@ -243,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // File rename functionality with animation
+    // File rename functionality
     document.querySelectorAll('.rename-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const fileId = this.dataset.fileId;
@@ -263,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.appendChild(input);
                 document.body.appendChild(form);
 
-                // Add rename animation
                 const fileCard = this.closest('.file-card');
                 const fileNameElement = fileCard.querySelector('.file-name');
                 fileNameElement.style.transition = 'opacity 0.3s ease';
@@ -277,84 +270,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-
-    // File preview functionality
-    window.previewFile = function(fileId, mimeType) {
-        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
-        const previewContent = document.querySelector('.preview-content');
-        const downloadBtn = document.querySelector('.download-btn');
-
-        // Show loading state
-        previewContent.innerHTML = `
-            <div class="loading">
-                <i data-feather="loader"></i>
-                <span>Loading preview...</span>
-            </div>
-        `;
-        feather.replace();
-
-        // Update download link
-        downloadBtn.href = `/file/${fileId}`;
-
-        // Show the modal
-        modal.show();
-
-        // Determine preview type and load content
-        if (mimeType.startsWith('image/')) {
-            const img = new Image();
-            img.onload = function() {
-                previewContent.innerHTML = '';
-                previewContent.appendChild(img);
-            };
-            img.src = `/file/${fileId}`;
-        } else if (mimeType === 'application/pdf') {
-            const pdfUrl = `/file/${fileId}`;
-            previewContent.innerHTML = `
-                <iframe 
-                    src="${pdfUrl}#toolbar=0&navpanes=0"
-                    type="application/pdf"
-                    width="100%"
-                    height="600px"
-                    frameborder="0"
-                    allowfullscreen>
-                </iframe>
-            `;
-        } else if (mimeType.startsWith('text/') || 
-                   mimeType === 'application/json' ||
-                   mimeType === 'application/javascript') {
-            fetch(`/file/${fileId}`)
-                .then(response => response.text())
-                .then(text => {
-                    previewContent.innerHTML = `
-                        <pre class="text-preview">${escapeHtml(text)}</pre>
-                    `;
-                })
-                .catch(error => {
-                    previewContent.innerHTML = `
-                        <div class="alert alert-danger">
-                            Error loading preview: ${error.message}
-                        </div>
-                    `;
-                });
-        } else {
-            previewContent.innerHTML = `
-                <div class="text-center p-4">
-                    <i data-feather="file" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
-                    <p>Preview not available for this file type.</p>
-                    <p>Click the download button to view the file.</p>
-                </div>
-            `;
-            feather.replace();
-        }
-    };
-
-    // Helper function to escape HTML special characters
-    function escapeHtml(unsafe) {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 });
