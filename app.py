@@ -258,6 +258,7 @@ def delete_file(file_id):
                     vector_ids = [match.id for match in response.matches]
 
                 if vector_ids:
+                    # Using the correct delete method for serverless indexes
                     vector_store.delete(ids=vector_ids)
                     logging.info(f"Deleted {len(vector_ids)} vectors for file: {file.filename}")
                 else:
