@@ -1,0 +1,154 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mt-5">
+  <h2>Pinecone Indexes</h2>
+
+  <!-- Create New Index Form -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Create New Index</h5>
+    </div>
+    <div class="card-body">
+      <form action="{{ url_for('create_index') }}" method="POST">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group">
+              <label for="name">Index Name</label>
+              <input
+                type="text"
+                class="form-control"
+                id="name"
+                name="name"
+                required
+                pattern="[a-z0-9-]+"
+                title="Only lowercase letters, numbers, and hyphens allowed"
+              />
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="dimension">Dimension</label>
+              <input
+                type="number"
+                class="form-control"
+                id="dimension"
+                name="dimension"
+                value="1536"
+              />
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="metric">Metric</label>
+              <select class="form-control" id="metric" name="metric">
+                <option value="cosine">Cosine</option>
+                <option value="euclidean">Euclidean</option>
+                <option value="dotproduct">Dot Product</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="cloud">Cloud</label>
+              <select class="form-control" id="cloud" name="cloud">
+                <option value="aws">AWS</option>
+                <option value="gcp">GCP</option>
+                <option value="azure">Azure</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="region">Region</label>
+              <input
+                type="text"
+                class="form-control"
+                id="region"
+                name="region"
+                value="us-west-2"
+              />
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Create Index</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Existing Indexes -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">Existing Indexes</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Dimension</th>
+              <th>Metric</th>
+              <th>Cloud</th>
+              <th>Region</th>
+              <th>Status</th>
+              <th>Files</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for index in indexes %}
+            <tr>
+              <td>{{ index.name }}</td>
+              <td>{{ index.dimension }}</td>
+              <td>{{ index.metric }}</td>
+              <td>{{ index.cloud }}</td>
+              <td>{{ index.region }}</td>
+              <td>
+                <span
+                  class="badge {% if index.status == 'ready' %}bg-success{% else %}bg-warning{% endif %}"
+                  >{{ index.status }}</span
+                >
+              </td>
+              <td>{{ index.files|length }}</td>
+              <td>
+                <form
+                  action="{{ url_for('delete_index', index_id=index.id) }}"
+                  method="POST"
+                  class="d-inline"
+                  onsubmit="return confirm('Are you sure you want to delete this index? This action cannot be undone.');"
+                >
+                  <button
+                    type="submit"
+                    class="btn btn-danger btn-sm"
+                    {%
+                    if
+                    index.files|length
+                  >
+                    0 %}disabled{% endif %}>Delete
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %} {% if messages
+%} {% for category, message in messages %}
+<div
+  class="alert alert-{{ category }} alert-dismissible fade show"
+  role="alert"
+>
+  {{ message }}
+  <button
+    type="button"
+    class="btn-close"
+    data-bs-dismiss="alert"
+    aria-label="Close"
+  ></button>
+</div>
+{% endfor %} {% endif %} {% endwith %} {% endblock %}

@@ -239,7 +239,7 @@ body {
 }
 
 #logs-content {
-  height: 100%;
+  height: 75vh;
   padding: 1rem;
 }
 

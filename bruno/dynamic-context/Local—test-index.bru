@@ -1,0 +1,19 @@
+meta {
+  name: Local—test-index
+  type: http
+  seq: 4
+}
+
+post {
+  url: 127.0.0.1:5000/api/test-index
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "userID": "user",
+    "query": "tell me about stress and burnout according to the PLOS paper",
+    "additional_context": "Chat ID: {chatID}, Character ID: {characterID}"
+  }
+}
