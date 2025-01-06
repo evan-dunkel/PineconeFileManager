@@ -1,0 +1,1 @@
+{"version":2,"languages":{"python3-uv":{"specfileHash":"14e4e5f5a04cbef0e5292266661b841f","lockfileHash":"54739c78eda1a47b0871a3152e0cf292","guessedImports":["Flask","openai","Werkzeug","docx2txt","python-dotenv","Flask-SQLAlchemy","SQLAlchemy","pdf2image","pinecone"],"guessedImportsHash":"326b8fd697b5587c6482d39a678c5d56"}}}

@@ -1,0 +1,19 @@
+meta {
+  name: Local
+  type: http
+  seq: 3
+}
+
+post {
+  url: 127.0.0.1:5000/api/dynamic-context
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "userID": "user",
+    "query": "How does Kapil's perspective on 'MindLESSness' relate to his teachings about 'becoming a legend' and what's the connection to living as a God?",
+    "additional_context": "Chat ID: {chatID}, Character ID: {characterID}"
+  }
+}

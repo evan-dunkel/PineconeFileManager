@@ -1,6 +1,10 @@
 import os
 import logging
 from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, flash, url_for, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -9,14 +13,81 @@ from pinecone import Pinecone, ServerlessSpec
 from openai import OpenAI
 from utils import (generate_thumbnail, generate_pdf_preview, get_mime_type,
                    is_image, is_pdf, get_file_icon, extract_text_from_file,
-                   IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, chunk_text, generate_title) #Added generate_title import
+                   IMAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, chunk_text,
+                   generate_title)
 import pinecone
-
-# Load environment variables
-load_dotenv()
+import time
+from threading import Lock
+from pydantic import BaseModel
+from typing import List, Optional
+import json
+from dataclasses import dataclass
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Global upload status tracking
+upload_status = {
+    'status': 'idle',
+    'progress': 0,
+    'message': '',
+    'current_operation': '',
+    'operation_progress': 0,
+    'timestamp': time.time()
+}
+status_lock = Lock()
+
+# Global log tracking
+api_logs = []
+max_logs = 100
+
+def add_api_log(message, level="info"):
+    global api_logs
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    api_logs.append({
+        "timestamp": timestamp,
+        "message": message,
+        "level": level
+    })
+    # Keep only the last max_logs entries
+    if len(api_logs) > max_logs:
+        api_logs = api_logs[-max_logs:]
+
+# Update the logging configuration to capture API logs
+class APILogHandler(logging.Handler):
+    def emit(self, record):
+        add_api_log(self.format(record), record.levelname.lower())
+
+# Add the custom handler to the root logger
+api_log_handler = APILogHandler()
+api_log_handler.setFormatter(logging.Formatter('%(message)s'))
+logging.getLogger().addHandler(api_log_handler)
+
+def update_status(status, message, operation=None, operation_progress=None):
+    with status_lock:
+        upload_status['status'] = status
+        upload_status['message'] = message
+        upload_status['timestamp'] = time.time()
+
+        if operation:
+            upload_status['current_operation'] = operation
+
+        if operation_progress is not None:
+            upload_status['operation_progress'] = operation_progress
+
+            # Calculate overall progress based on current operation
+            if operation == 'uploading':
+                upload_status['progress'] = operation_progress * 0.3  # 0-30%
+            elif operation == 'processing':
+                upload_status['progress'] = 30 + (operation_progress * 0.2
+                                                  )  # 30-50%
+            elif operation == 'analyzing':
+                upload_status['progress'] = 50 + (operation_progress * 0.2
+                                                  )  # 50-70%
+            elif operation == 'vectorizing':
+                upload_status['progress'] = 70 + (operation_progress * 0.3
+                                                  )  # 70-100%
+
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
@@ -87,12 +158,11 @@ db.init_app(app)
 with app.app_context():
     import models  # noqa: F401
     try:
-        # Drop all tables and recreate them
-        db.drop_all()
+        # Only create tables if they don't exist
         db.create_all()
-        logging.info("Successfully recreated database tables")
+        logging.info("Successfully initialized database tables")
     except Exception as e:
-        logging.error(f"Error recreating database: {e}")
+        logging.error(f"Error initializing database: {e}")
         raise
 
 # File upload configuration
@@ -123,91 +193,105 @@ def upload_file():
             return jsonify({'error': 'No selected file'}), 400
 
         if file and allowed_file(file.filename):
+            update_status('processing', 'Starting upload...', 'uploading', 0)
+
             filename = secure_filename(file.filename)
             mime_type = get_mime_type(filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
-            # Initial response to show processing status
-            response = {'status': 'processing', 'message': 'File uploaded, generating preview...'}
+            update_status('processing', 'File uploaded, generating preview...',
+                          'processing', 0)
 
             # Generate display title
             display_title = generate_title(filename)
 
             thumbnail_path = None
             if is_image(mime_type):
+                update_status('processing', 'Processing image...',
+                              'processing', 30)
                 thumbnail_path = generate_thumbnail(file_path, filename)
-                response['message'] = 'Processing image...'
             elif is_pdf(mime_type):
+                update_status('processing', 'Generating PDF preview...',
+                              'processing', 30)
                 thumbnail_path = generate_pdf_preview(file_path, filename)
-                response['message'] = 'Generating PDF preview...'
                 logging.info(f"Generated PDF preview: {thumbnail_path}")
 
+            update_status('processing', 'Extracting content...', 'analyzing',
+                          0)
             # Extract text content
             text_content = extract_text_from_file(file_path, mime_type)
             vector_id = None
-            response['message'] = 'Analyzing content...'
 
             # Generate embedding and store in Pinecone
             if text_content and client and vector_store:
                 try:
+                    update_status('processing', 'Analyzing content...',
+                                  'analyzing', 50)
                     # Generate base vector_id for the file
                     base_vector_id = f"file_{filename}"
 
                     # Chunk the text content
                     chunks = chunk_text(text_content)
-                    logging.info(f"Split document into {len(chunks)} chunks")
-                    response['message'] = f'Vectorizing content ({len(chunks)} sections)...'
+                    total_chunks = len(chunks)
+                    logging.info(f"Split document into {total_chunks} chunks")
 
                     vectors_to_upsert = []
 
                     # Process each chunk
                     for chunk_idx, chunk in enumerate(chunks):
-                        response['message'] = f'Vectorizing section {chunk_idx + 1} of {len(chunks)}...'
+                        progress = (chunk_idx / total_chunks) * 100
+                        update_status(
+                            'processing',
+                            f'Vectorizing section {chunk_idx + 1} of {total_chunks}...',
+                            'vectorizing', progress)
 
                         # Generate embeddings using OpenAI
                         embedding_response = client.embeddings.create(
                             model="text-embedding-ada-002", input=chunk)
 
                         if embedding_response and embedding_response.data:
-                            # Create a unique vector ID for each chunk
                             chunk_vector_id = f"{base_vector_id}_chunk_{chunk_idx}"
-
-                            # Add vector to the batch
                             vectors_to_upsert.append({
-                                'id': chunk_vector_id,
-                                'values': embedding_response.data[0].embedding,
+                                'id':
+                                chunk_vector_id,
+                                'values':
+                                embedding_response.data[0].embedding,
                                 'metadata': {
                                     'filename': filename,
                                     'mime_type': mime_type,
                                     'chunk_index': chunk_idx,
-                                    'total_chunks': len(chunks),
-                                    'text_content': chunk[:1000],  # Store first 1000 chars of chunk
+                                    'total_chunks': total_chunks,
+                                    'text_content': chunk[:1000],
                                     'is_chunk': True,
                                     'parent_file': base_vector_id
                                 }
                             })
 
-                    # Batch upsert all chunks to Pinecone
                     if vectors_to_upsert:
-                        response['message'] = 'Storing vectors in database...'
+                        update_status('processing',
+                                      'Storing vectors in database...',
+                                      'vectorizing', 90)
 
                         try:
-                            # Convert vectors to the correct format for Pinecone 5.0.1
                             vectors_for_upsert = []
                             for vector in vectors_to_upsert:
                                 vectors_for_upsert.append({
-                                    'id': vector['id'],
-                                    'values': vector['values'],
-                                    'metadata': vector['metadata']
+                                    'id':
+                                    vector['id'],
+                                    'values':
+                                    vector['values'],
+                                    'metadata':
+                                    vector['metadata']
                                 })
 
-                            # Use the new upsert format
                             vector_store.upsert(vectors=vectors_for_upsert)
-                            vector_id = base_vector_id  # Store the base vector ID
+                            vector_id = base_vector_id
                             logging.info(
-                                f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks")
-                            response['message'] = 'Finalizing...'
+                                f"Successfully vectorized file: {filename} with {len(vectors_to_upsert)} chunks"
+                            )
+                            update_status('processing', 'Finalizing...',
+                                          'vectorizing', 100)
 
                         except Exception as e:
                             logging.error(f"Pinecone upsert error: {e}")
@@ -215,29 +299,48 @@ def upload_file():
 
                 except Exception as e:
                     logging.error(f"Error vectorizing file: {e}")
-                    return jsonify({'error': f'Error vectorizing file: {str(e)}'}), 500
+                    return jsonify(
+                        {'error': f'Error vectorizing file: {str(e)}'}), 500
 
-            # Create database entry with the new display_title
-            new_file = models.File(
-                filename=filename,
-                filepath=file_path,
-                mime_type=mime_type,
-                thumbnail_path=thumbnail_path,
-                vector_id=vector_id,
-                processed=bool(vector_id),
-                display_title=display_title
-            )
+            # Create database entry
+            new_file = models.File(filename=filename,
+                                   filepath=file_path,
+                                   mime_type=mime_type,
+                                   thumbnail_path=thumbnail_path,
+                                   vector_id=vector_id,
+                                   processed=bool(vector_id),
+                                   display_title=display_title)
             db.session.add(new_file)
             db.session.commit()
 
-            return jsonify({'message': 'File uploaded successfully'}), 200
+            update_status('complete', 'Complete!', 'complete', 100)
+            return jsonify({
+                'status': 'processing',
+                'message': 'Processing complete'
+            }), 200
 
         return jsonify({'error': 'Invalid file type'}), 400
 
     except Exception as e:
         logging.error(f"Upload error: {e}")
         db.session.rollback()
+        update_status('error', str(e), 'error', 0)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/upload/status')
+def get_upload_status():
+    """Get the current status of the upload process"""
+    with status_lock:
+        # Clear status if it's too old (5 minutes)
+        if time.time() - upload_status['timestamp'] > 300:
+            upload_status['status'] = 'idle'
+            upload_status['progress'] = 0
+            upload_status['message'] = ''
+            upload_status['current_operation'] = ''
+            upload_status['operation_progress'] = 0
+
+        return jsonify(upload_status)
 
 
 @app.route('/file/<int:file_id>')
@@ -273,7 +376,9 @@ def delete_file(file_id):
                         ids=vector_ids,
                         namespace=""  # Add empty namespace if required
                     )
-                    logging.info(f"Successfully deleted vectors for file: {file.filename}")
+                    logging.info(
+                        f"Successfully deleted vectors for file: {file.filename}"
+                    )
                 except Exception as e:
                     logging.error(f"Error deleting vectors: {e}")
                     raise
@@ -324,6 +429,112 @@ def rename_file(file_id):
         flash('Error renaming file')
 
     return redirect(url_for('index'))
+
+
+# Add data classes for request/response validation
+@dataclass
+class DynamicContextRequest:
+    query: str
+    userID: str
+    additional_context: Optional[str] = None
+
+@dataclass
+class DynamicContextResponse:
+    answer: str
+    contexts: List[dict]
+
+@app.route('/api/dynamic-context', methods=['POST'])
+def get_dynamic_context():
+    try:
+        data = request.get_json()
+        # Create request object with only the fields we need
+        context_request = DynamicContextRequest(
+            query=data['query'],
+            userID=data['userID'],
+            additional_context=data.get('additional_context')
+        )
+        
+        print(f"Query: {context_request.query}")
+        # Extract search-relevant information using GPT
+        extraction_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "system",
+                "content": "IF the query could be a request to search, extract key information from the query that would be relevant for searching a knowledge base. Return only the essential search terms and concepts. Otherwise, return an empty string."
+            }, {
+                "role": "user",
+                "content": context_request.query
+            }])
+
+        search_terms = extraction_response.choices[0].message.content.strip()
+        print("Search Terms:", f"'{search_terms}'")
+
+        # Return empty response immediately if no search terms or just quotes
+        if not search_terms or search_terms == '""':
+            print("No search terms found - returning empty response")
+            return jsonify(DynamicContextResponse(answer="", contexts=[]).__dict__)
+
+        # Generate embedding for the extracted search terms
+        query_embedding = client.embeddings.create(
+            input=search_terms,
+            model="text-embedding-ada-002").data[0].embedding
+
+        # Query Pinecone for similar context
+        search_results = vector_store.query(vector=query_embedding,
+                                     top_k=3,
+                                     include_metadata=True)
+        print("Pinecone search results:", search_results)
+
+        # Prepare context
+        print("Processing matches...")
+        contexts = [{
+            "id": match["id"],
+            "score": match["score"],
+            "text": match["metadata"].get("text_content", "No content available")
+        } for match in search_results["matches"]]
+
+        retrieved_context = " ".join([
+            match["metadata"].get("text_content", "")
+            for match in search_results["matches"]
+        ])
+        print("Number of matches:", len(search_results["matches"]))
+
+        # Additional context if provided
+        if context_request.additional_context:
+            retrieved_context += f"\n{context_request.additional_context}"
+
+        # Get response from GPT-4
+        print("Sending query to GPT with context length:", len(retrieved_context))
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{
+                "role": "system",
+                "content": "You are a helpful assistant. Find anything relevant to the query."
+            }, {
+                "role": "user",
+                "content": context_request.query
+            }, {
+                "role": "system",
+                "content": f"Relevant context: {retrieved_context}"
+            }])
+        print("GPT Response:", response.choices[0].message.content)
+
+        return jsonify(DynamicContextResponse(
+            answer=response.choices[0].message.content,
+            contexts=contexts
+        ).__dict__)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"})
+
+@app.route('/api/logs')
+def get_api_logs():
+    """Get the current API logs"""
+    return jsonify(api_logs)
 
 
 if __name__ == '__main__':

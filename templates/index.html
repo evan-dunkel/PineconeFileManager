@@ -1,127 +1,145 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="row">
-    <div class="col-md-12">
-        <div class="upload-zone">
-            <div class="upload-content">
-                <i data-feather="upload-cloud" class="mb-3" style="width: 48px; height: 48px;"></i>
-                <h4>Drag and drop files here</h4>
-                <p>or</p>
-                <input type="file" id="file-input" class="d-none">
-                <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
-                    Browse Files
-                </button>
-            </div>
-
-            <!-- Stage Indicator -->
-            <div class="stage-indicator">
-                <div class="stage" data-stage="upload">
-                    <div class="stage-icon">
-                        <i data-feather="upload"></i>
-                    </div>
-                    <div class="stage-label">Upload</div>
-                </div>
-                <div class="stage" data-stage="analyze">
-                    <div class="stage-icon">
-                        <i data-feather="cpu"></i>
-                    </div>
-                    <div class="stage-label">Analyze</div>
-                </div>
-                <div class="stage" data-stage="process">
-                    <div class="stage-icon">
-                        <i data-feather="database"></i>
-                    </div>
-                    <div class="stage-label">Process</div>
-                </div>
-                <div class="stage" data-stage="complete">
-                    <div class="stage-icon">
-                        <i data-feather="check"></i>
-                    </div>
-                    <div class="stage-label">Complete</div>
-                </div>
-            </div>
-
-            <div class="progress-container">
-                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-            </div>
-            <div class="upload-status">
-                <i data-feather="loader" class="upload-status-icon"></i>
-                <span class="upload-status-text">Uploading file...</span>
-            </div>
-        </div>
+  <div class="col-md-12">
+    <div class="upload-zone">
+      <div class="upload-content">
+        <i
+          data-feather="upload-cloud"
+          class="mb-3"
+          style="width: 48px; height: 48px"
+        ></i>
+        <h4>Drag and drop files here</h4>
+        <p>or</p>
+        <input type="file" id="file-input" class="d-none" />
+        <button
+          class="btn btn-primary"
+          onclick="document.getElementById('file-input').click()"
+        >
+          Browse Files
+        </button>
+        <!-- <button
+          class="btn btn-secondary mt-2"
+          onclick="simulateUpload()"
+          id="test-upload-btn"
+        >
+          Test Upload Progress
+        </button> -->
+      </div>
     </div>
+  </div>
 </div>
 
 <div class="row file-list">
-    <div class="col-md-12">
-        <h3>Uploaded Files</h3>
-        {% if files %}
-            <div class="row">
-            {% for file in files %}
-                <div class="col-md-4 col-lg-3 mb-4">
-                    <div class="file-card">
-                        <a href="{{ url_for('serve_file', file_id=file.id) }}" target="_blank" class="file-preview">
-                            {% if file.thumbnail_path %}
-                                <img src="{{ url_for('static', filename=file.thumbnail_path) }}" 
-                                     alt="{{ file.filename }}" 
-                                     class="img-thumbnail">
-                            {% else %}
-                                <i data-feather="{{ get_file_icon(file.mime_type) }}" 
-                                   class="preview-icon"></i>
-                            {% endif %}
-                        </a>
-                        <div class="file-info">
-                            <p class="file-name" 
-                               title="{{ file.filename }}"
-                               data-bs-toggle="tooltip" 
-                               data-bs-placement="top" 
-                               data-bs-delay='{"show":1000, "hide":100}'>
-                                {{ file.display_title or file.filename }}
-                            </p>
-                            <small class="text-muted">
-                                {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                            </small>
-                        </div>
-                        <div class="file-actions">
-                            <a href="{{ url_for('serve_file', file_id=file.id) }}" 
-                               target="_blank"
-                               class="btn btn-sm btn-outline-primary"
-                               title="Open">
-                                <i data-feather="external-link"></i>
-                            </a>
-                            <button class="btn btn-sm btn-outline-primary rename-btn"
-                                    data-file-id="{{ file.id }}"
-                                    data-file-name="{{ file.filename }}"
-                                    title="Rename">
-                                <i data-feather="edit-2"></i>
-                            </button>
-                            <form action="{{ url_for('delete_file', file_id=file.id) }}" 
-                                  method="POST" 
-                                  class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i data-feather="trash-2"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-muted">No files uploaded yet.</p>
-        {% endif %}
+  <div class="col-md-12">
+    <h3>Uploaded Files</h3>
+    {% if files %}
+    <div class="row">
+      {% for file in files %}
+      <div class="col-md-4 col-lg-3 mb-4">
+        <div class="file-card">
+          <a
+            href="{{ url_for('serve_file', file_id=file.id) }}"
+            target="_blank"
+            class="file-preview"
+          >
+            {% if file.thumbnail_path %}
+            <img
+              src="{{ url_for('static', filename=file.thumbnail_path) }}"
+              alt="{{ file.filename }}"
+              class="img-thumbnail"
+            />
+            {% else %}
+            <i
+              data-feather="{{ get_file_icon(file.mime_type) }}"
+              class="preview-icon"
+            ></i>
+            {% endif %}
+          </a>
+          <div class="file-info">
+            <p
+              class="file-name"
+              title="{{ file.filename }}"
+              data-bs-toggle="tooltip"
+              data-bs-placement="top"
+              data-bs-delay='{"show":1000, "hide":100}'
+            >
+              {{ file.display_title or file.filename }}
+            </p>
+            <small class="text-muted">
+              {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            </small>
+          </div>
+          <div class="file-actions">
+            <a
+              href="{{ url_for('serve_file', file_id=file.id) }}"
+              target="_blank"
+              class="btn btn-sm btn-outline-primary"
+              title="Open"
+            >
+              <i data-feather="external-link"></i>
+            </a>
+            <!-- <button
+              class="btn btn-sm btn-outline-primary rename-btn"
+              data-file-id="{{ file.id }}"
+              data-file-name="{{ file.filename }}"
+              title="Rename"
+            >
+              <i data-feather="edit-2"></i>
+            </button> -->
+            <form
+              action="{{ url_for('delete_file', file_id=file.id) }}"
+              method="POST"
+              class="d-inline"
+            >
+              <button
+                type="submit"
+                class="btn btn-sm btn-outline-danger"
+                title="Delete"
+              >
+                <i data-feather="trash-2"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
     </div>
+    {% else %}
+    <p class="text-muted">No files uploaded yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="card mt-4">
+      <div
+        class="card-header d-flex justify-content-between align-items-center"
+      >
+        <h5 class="mb-0">API Logs</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+          Clear
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="api-logs" class="log-container">
+          <div class="text-muted text-center">Waiting for API activity...</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        feather.replace();
-        // Initialize tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        });
+  document.addEventListener("DOMContentLoaded", function () {
+    feather.replace();
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(
+      document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    );
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+  });
 </script>
 {% endblock %}

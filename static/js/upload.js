@@ -1,286 +1,330 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const uploadZone = document.querySelector('.upload-zone');
-    const uploadContent = document.querySelector('.upload-content');
-    const fileInput = document.querySelector('#file-input');
-    const progressBar = document.querySelector('.progress-bar');
-    const progressContainer = document.querySelector('.progress-container');
-    const uploadStatus = document.querySelector('.upload-status');
-    const uploadStatusIcon = uploadStatus.querySelector('.upload-status-icon');
-    const uploadStatusText = uploadStatus.querySelector('.upload-status-text');
-    const stageIndicator = document.querySelector('.stage-indicator');
+document.addEventListener("DOMContentLoaded", function () {
+  const uploadZone = document.querySelector(".upload-zone");
+  const uploadContent = document.querySelector(".upload-content");
+  const fileInput = document.querySelector("#file-input");
 
-    let processingStartTime = null;
-    let shouldShowDetailedStatus = false;
+  // Add progress elements
+  const progressElement = document.createElement("div");
+  progressElement.className = "upload-progress";
+  progressElement.innerHTML = `
+    <div class="progress-status">Preparing upload...</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar"></div>
+    </div>
+  `;
+  uploadContent.appendChild(progressElement);
 
-    function showProcessingUI() {
-        uploadContent.classList.add('hidden');
-        progressContainer.classList.add('active');
-        stageIndicator.classList.add('active');
-    }
+  const progressBar = progressElement.querySelector(".progress-bar");
+  const progressStatus = progressElement.querySelector(".progress-status");
 
-    function resetUI() {
-        uploadContent.classList.remove('hidden');
-        progressContainer.classList.remove('active');
-        stageIndicator.classList.remove('active');
-        uploadStatus.classList.remove('active');
-        progressBar.style.width = '0%';
-        processingStartTime = null;
-        shouldShowDetailedStatus = false;
-    }
+  // Hide progress element initially
+  progressElement.style.display = "none";
 
-    function updateStage(stageName) {
-        const stages = ['upload', 'analyze', 'process', 'complete'];
-        const currentIndex = stages.indexOf(stageName);
-        const progressPercentage = ((currentIndex + 1) / stages.length) * 100;
+  // Function to simulate an upload process
+  window.simulateUpload = function () {
+    toggleUploadInterface(true);
+    updateProgress(0, "Starting upload simulation...");
 
-        stages.forEach((stage, index) => {
-            const stageElement = document.querySelector(`.stage[data-stage="${stage}"]`);
-            if (index < currentIndex) {
-                stageElement.classList.add('completed');
-                stageElement.classList.remove('active');
-            } else if (index === currentIndex) {
-                stageElement.classList.add('active');
-                stageElement.classList.remove('completed');
-            } else {
-                stageElement.classList.remove('completed', 'active');
-            }
-        });
+    let currentProgress = 0;
+    const stages = [
+      { progress: 30, message: "Uploading file...", duration: 2000 },
+      { progress: 50, message: "Processing file...", duration: 1500 },
+      { progress: 70, message: "Analyzing content...", duration: 1500 },
+      { progress: 100, message: "Complete!", duration: 1000 },
+    ];
 
-        // Update progress bar based on current stage
-        progressBar.style.width = `${progressPercentage}%`;
-    }
+    let currentStage = 0;
 
-    function updateUploadStatus(status, message, forceShow = false) {
-        const now = Date.now();
+    function runStage() {
+      if (currentStage >= stages.length) {
+        setTimeout(() => {
+          toggleUploadInterface(false);
+        }, 1000);
+        return;
+      }
 
-        if (status === 'uploading') {
-            showProcessingUI();
-        }
+      const stage = stages[currentStage];
+      const startProgress = currentProgress;
+      const progressDiff = stage.progress - startProgress;
+      const startTime = Date.now();
 
-        if (status === 'analyzing' && !processingStartTime) {
-            processingStartTime = now;
-            shouldShowDetailedStatus = false;
-            setTimeout(() => {
-                shouldShowDetailedStatus = true;
-                if (uploadStatus.classList.contains('active') && !uploadStatus.querySelector('.success')) {
-                    uploadStatusText.textContent = message;
-                }
-            }, 3000);
-        }
+      function updateStage() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / stage.duration, 1);
+        currentProgress = startProgress + progressDiff * progress;
 
-        // Show progress container for all states except error
-        if (status !== 'error') {
-            progressContainer.classList.add('active');
-        }
+        updateProgress(currentProgress, stage.message);
 
-        const showImmediately = status === 'uploading' || status === 'success' || status === 'error' || forceShow;
-
-        if (showImmediately || shouldShowDetailedStatus) {
-            uploadStatus.classList.add('active');
-            uploadStatusText.textContent = message;
-        } else if (status === 'analyzing' || status === 'processing') {
-            uploadStatusText.textContent = 'Processing...';
-        }
-
-        let iconName = 'loader';
-        let stageName = 'upload';
-        let progress = 0;
-
-        switch(status) {
-            case 'uploading':
-                iconName = 'loader';
-                stageName = 'upload';
-                progress = 25;
-                break;
-            case 'analyzing':
-                iconName = 'loader';
-                stageName = 'analyze';
-                progress = 50;
-                break;
-            case 'processing':
-                iconName = 'loader';
-                stageName = 'process';
-                progress = 75;
-                break;
-            case 'success':
-                iconName = 'check-circle';
-                stageName = 'complete';
-                progress = 100;
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-                break;
-            case 'error':
-                iconName = 'alert-circle';
-                resetUI();
-                break;
-        }
-
-        progressBar.style.width = `${progress}%`;
-        uploadStatusIcon.setAttribute('data-feather', iconName);
-        uploadStatusIcon.classList.remove('success', 'error', 'processing');
-
-        if (status === 'success' || status === 'error') {
-            uploadStatusIcon.classList.add(status);
+        if (progress < 1) {
+          requestAnimationFrame(updateStage);
         } else {
-            uploadStatusIcon.classList.add('processing');
+          currentStage++;
+          setTimeout(runStage, 200);
         }
+      }
 
-        updateStage(stageName);
-        feather.replace();
+      requestAnimationFrame(updateStage);
     }
 
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadZone.addEventListener(eventName, preventDefaults, false);
+    runStage();
+  };
+
+  // Function to toggle upload interface elements
+  function toggleUploadInterface(showProgress) {
+    const uploadElements = uploadContent.querySelectorAll(
+      "i, h4, p, input, button"
+    );
+    uploadElements.forEach((el) => {
+      el.style.display = showProgress ? "none" : "";
     });
+    progressElement.style.display = showProgress ? "block" : "none";
+  }
 
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+    uploadZone.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    uploadZone.addEventListener(eventName, highlight, false);
+  });
+
+  ["dragleave", "drop"].forEach((eventName) => {
+    uploadZone.addEventListener(eventName, unhighlight, false);
+  });
+
+  function highlight() {
+    uploadZone.classList.add("dragover");
+  }
+
+  function unhighlight() {
+    uploadZone.classList.remove("dragover");
+  }
+
+  uploadZone.addEventListener("drop", handleDrop, false);
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+  }
+
+  fileInput.addEventListener("change", function () {
+    handleFiles(this.files);
+  });
+
+  function updateProgress(percent, status) {
+    // Smoothly animate the progress bar
+    const currentWidth = parseFloat(progressBar.style.width) || 0;
+    const targetWidth = percent;
+
+    // Animate from current to target width
+    const startTime = performance.now();
+    const duration = 500; // Animation duration in milliseconds
+
+    function animate(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      const currentPercent =
+        currentWidth + (targetWidth - currentWidth) * progress;
+      progressBar.style.width = `${currentPercent}%`;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
     }
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadZone.addEventListener(eventName, highlight, false);
-    });
+    requestAnimationFrame(animate);
+    progressStatus.textContent = status;
+  }
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadZone.addEventListener(eventName, unhighlight, false);
-    });
+  function handleFiles(files) {
+    if (!files.length) return;
 
-    function highlight() {
-        uploadZone.classList.add('dragover');
-    }
+    const formData = new FormData();
+    formData.append("file", files[0]);
 
-    function unhighlight() {
-        uploadZone.classList.remove('dragover');
-    }
+    // Show progress element and hide upload interface
+    toggleUploadInterface(true);
+    updateProgress(0, "Starting upload...");
 
-    uploadZone.addEventListener('drop', handleDrop, false);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/upload", true);
 
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleFiles(files);
-    }
+    // Track upload progress
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) {
+        const uploadPercent = (e.loaded / e.total) * 100;
+        updateProgress(uploadPercent * 0.2, "Uploading file..."); // Scale to 0-20% range
+      }
+    };
 
-    fileInput.addEventListener('change', function() {
-        handleFiles(this.files);
-    });
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        try {
+          const response = JSON.parse(xhr.responseText);
 
-    function showError(message) {
-        updateUploadStatus('error', message);
-    }
-
-    function handleFiles(files) {
-        if (!files.length) return;
-
-        const formData = new FormData();
-        formData.append('file', files[0]);
-
-        showProcessingUI();
-        progressBar.style.width = '0%';
-        updateUploadStatus('uploading', 'Preparing to upload file...', true);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
-
-        xhr.upload.addEventListener('progress', function(e) {
-            if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100;
-                progressBar.style.width = percentComplete + '%';
-                if (percentComplete < 100) {
-                    updateUploadStatus('uploading', `Uploading: ${Math.round(percentComplete)}%`, true);
+          // Start polling for status updates
+          const pollStatus = () => {
+            fetch("/upload/status")
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.status === "error") {
+                  updateProgress(0, data.message || "Upload failed");
+                  setTimeout(() => {
+                    toggleUploadInterface(false);
+                  }, 3000);
+                } else if (data.status === "complete") {
+                  updateProgress(100, "Complete!");
+                  setTimeout(() => window.location.reload(), 1000);
+                } else if (data.status === "idle") {
+                  // Status is too old, refresh the page
+                  window.location.reload();
                 } else {
-                    updateUploadStatus('analyzing', 'Analyzing file content...');
+                  // Update progress based on current operation
+                  const progress = data.progress || 0;
+                  const message = data.message || "Processing...";
+
+                  // Only update if there's a change in progress or message
+                  const currentMessage = progressStatus.textContent;
+                  const currentProgress =
+                    parseFloat(progressBar.style.width) || 0;
+
+                  if (
+                    message !== currentMessage ||
+                    Math.abs(progress - currentProgress) > 0.1
+                  ) {
+                    console.log(
+                      `Status Update - Progress: ${progress}%, Message: ${message}`
+                    ); // Debug log
+                    updateProgress(progress, message);
+                  }
+
+                  // Poll more frequently during active processing
+                  setTimeout(pollStatus, 100); // Poll every 100ms
                 }
-            }
-        });
-
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 3) {
-                updateUploadStatus('processing', 'Processing file...');
-            }
-        };
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                const response = JSON.parse(xhr.responseText);
-                if (response.status === 'processing') {
-                    updateUploadStatus('processing', response.message || 'Vectorizing content...');
-                } else {
-                    updateUploadStatus('success', 'Upload complete!');
-                }
-            } else {
-                const response = JSON.parse(xhr.responseText);
-                showError(response.error || 'Upload failed. Please try again.');
-            }
-        };
-
-        xhr.onerror = function() {
-            showError('Upload failed. Please try again.');
-        };
-
-        xhr.send(formData);
-    }
-
-    // File deletion functionality
-    document.querySelectorAll('form[action^="/delete/"]').forEach(form => {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            if (confirm('Are you sure you want to delete this file?')) {
-                const fileCard = this.closest('.file-card');
-                const deleteStatus = document.createElement('div');
-                deleteStatus.className = 'alert alert-info d-flex align-items-center';
-                deleteStatus.innerHTML = `
-                    <i data-feather="trash-2" class="me-2"></i>
-                    <span>Deleting file and associated data...</span>
-                `;
-
-                if (fileCard) {
-                    fileCard.appendChild(deleteStatus);
-                    feather.replace();
-
-                    fileCard.style.transition = 'opacity 0.5s ease';
-                    fileCard.style.opacity = '0.5';
-                }
-
-                this.submit();
-            }
-        });
-    });
-
-    // File rename functionality
-    document.querySelectorAll('.rename-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const fileId = this.dataset.fileId;
-            const currentName = this.dataset.fileName;
-            const newName = prompt('Enter new filename:', currentName);
-
-            if (newName && newName !== currentName) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = `/rename/${fileId}`;
-
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'new_name';
-                input.value = newName;
-
-                form.appendChild(input);
-                document.body.appendChild(form);
-
-                const fileCard = this.closest('.file-card');
-                const fileNameElement = fileCard.querySelector('.file-name');
-                fileNameElement.style.transition = 'opacity 0.3s ease';
-                fileNameElement.style.opacity = '0';
-
+              })
+              .catch((error) => {
+                console.error("Status check error:", error); // Debug log
+                updateProgress(0, "Error checking status");
                 setTimeout(() => {
-                    fileNameElement.textContent = newName;
-                    fileNameElement.style.opacity = '1';
-                    form.submit();
-                }, 300);
-            }
-        });
+                  toggleUploadInterface(false);
+                }, 3000);
+              });
+          };
+
+          // Start polling immediately
+          pollStatus();
+        } catch (e) {
+          updateProgress(0, "Error processing response");
+          setTimeout(() => {
+            toggleUploadInterface(false);
+          }, 3000);
+        }
+      } else {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          updateProgress(0, response.error || "Upload failed");
+          setTimeout(() => {
+            toggleUploadInterface(false);
+          }, 3000);
+        } catch (e) {
+          updateProgress(0, "Upload failed");
+          setTimeout(() => {
+            toggleUploadInterface(false);
+          }, 3000);
+        }
+      }
+    };
+
+    xhr.onerror = function () {
+      updateProgress(0, "Upload failed");
+      setTimeout(() => {
+        toggleUploadInterface(false);
+      }, 3000);
+    };
+
+    xhr.send(formData);
+  }
+
+  // File deletion functionality
+  document.querySelectorAll('form[action^="/delete/"]').forEach((form) => {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      if (confirm("Are you sure you want to delete this file?")) {
+        const fileCard = this.closest(".file-card");
+        const deleteStatus = document.createElement("div");
+        deleteStatus.className = "alert alert-info d-flex align-items-center";
+        deleteStatus.innerHTML = `
+          <i data-feather="trash-2" class="me-2"></i>
+          <span>Deleting file and associated data...</span>
+        `;
+
+        if (fileCard) {
+          fileCard.appendChild(deleteStatus);
+          feather.replace();
+
+          fileCard.style.transition = "opacity 0.5s ease";
+          this.submit();
+        }
+      }
     });
+  });
+
+  // API Logs functionality
+  let lastLogTimestamp = null;
+
+  function updateLogs() {
+    fetch("/api/logs")
+      .then((res) => res.json())
+      .then((logs) => {
+        const logsContainer = document.getElementById("api-logs");
+
+        // Filter new logs
+        const newLogs = lastLogTimestamp
+          ? logs.filter((log) => log.timestamp > lastLogTimestamp)
+          : logs;
+
+        if (newLogs.length > 0) {
+          // Update last timestamp
+          lastLogTimestamp = logs[logs.length - 1].timestamp;
+
+          // Clear placeholder if present
+          if (logsContainer.querySelector(".text-muted")) {
+            logsContainer.innerHTML = "";
+          }
+
+          // Add new logs
+          newLogs.forEach((log) => {
+            const logEntry = document.createElement("div");
+            logEntry.className = `log-entry ${log.level}`;
+            logEntry.innerHTML = `
+              <span class="timestamp">${log.timestamp}</span>
+              <span class="message">${log.message}</span>
+            `;
+            logsContainer.appendChild(logEntry);
+          });
+
+          // Scroll to bottom
+          logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+      })
+      .catch((error) => console.error("Error fetching logs:", error));
+  }
+
+  function clearLogs() {
+    const logsContainer = document.getElementById("api-logs");
+    logsContainer.innerHTML =
+      '<div class="text-muted text-center">Waiting for API activity...</div>';
+    lastLogTimestamp = null;
+  }
+
+  // Start polling for logs
+  setInterval(updateLogs, 1000);
 });
