@@ -22,6 +22,18 @@ from pydantic import BaseModel
 from typing import List, Optional
 import json
 from dataclasses import dataclass
+from flask_socketio import SocketIO, emit
+
+# Initialize Flask
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "development-key"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///files.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
+app.config["UPLOAD_FOLDER"] = "uploads"
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -41,17 +53,21 @@ status_lock = Lock()
 api_logs = []
 max_logs = 100
 
-def add_api_log(message, level="info"):
+def add_api_log(message, level="info", additional_data=None):
     global api_logs
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    api_logs.append({
+    log_entry = {
         "timestamp": timestamp,
         "message": message,
-        "level": level
-    })
+        "level": level,
+        **(additional_data or {})
+    }
+    api_logs.append(log_entry)
     # Keep only the last max_logs entries
     if len(api_logs) > max_logs:
         api_logs = api_logs[-max_logs:]
+    # Emit the new log entry to connected clients
+    socketio.emit('new_log', log_entry)
 
 # Update the logging configuration to capture API logs
 class APILogHandler(logging.Handler):
@@ -62,6 +78,12 @@ class APILogHandler(logging.Handler):
 api_log_handler = APILogHandler()
 api_log_handler.setFormatter(logging.Formatter('%(message)s'))
 logging.getLogger().addHandler(api_log_handler)
+
+class Base(DeclarativeBase):
+    pass
+
+db = SQLAlchemy(model_class=Base)
+db.init_app(app)
 
 def update_status(status, message, operation=None, operation_progress=None):
     with status_lock:
@@ -79,15 +101,22 @@ def update_status(status, message, operation=None, operation_progress=None):
             if operation == 'uploading':
                 upload_status['progress'] = operation_progress * 0.3  # 0-30%
             elif operation == 'processing':
-                upload_status['progress'] = 30 + (operation_progress * 0.2
-                                                  )  # 30-50%
+                upload_status['progress'] = 30 + (operation_progress * 0.2)  # 30-50%
             elif operation == 'analyzing':
-                upload_status['progress'] = 50 + (operation_progress * 0.2
-                                                  )  # 50-70%
+                upload_status['progress'] = 50 + (operation_progress * 0.2)  # 50-70%
             elif operation == 'vectorizing':
-                upload_status['progress'] = 70 + (operation_progress * 0.3
-                                                  )  # 70-100%
+                upload_status['progress'] = 70 + (operation_progress * 0.3)  # 70-100%
 
+# Initialize database
+with app.app_context():
+    import models  # noqa: F401
+    try:
+        # Only create tables if they don't exist
+        db.create_all()
+        logging.info("Successfully initialized database tables")
+    except Exception as e:
+        logging.error(f"Error initializing database: {e}")
+        raise
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
@@ -135,35 +164,6 @@ except Exception as e:
     vector_store = None
 
 logging.info(f"Pinecone SDK version: {pinecone.__version__}")
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-db = SQLAlchemy(model_class=Base)
-app = Flask(__name__)
-
-# Configuration
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "development-key"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///files.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
-app.config["UPLOAD_FOLDER"] = "uploads"
-
-# Initialize extensions
-db.init_app(app)
-
-# Initialize database
-with app.app_context():
-    import models  # noqa: F401
-    try:
-        # Only create tables if they don't exist
-        db.create_all()
-        logging.info("Successfully initialized database tables")
-    except Exception as e:
-        logging.error(f"Error initializing database: {e}")
-        raise
 
 # File upload configuration
 ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(DOCUMENT_EXTENSIONS)
@@ -447,14 +447,12 @@ class DynamicContextResponse:
 def get_dynamic_context():
     try:
         data = request.get_json()
-        # Create request object with only the fields we need
         context_request = DynamicContextRequest(
             query=data['query'],
             userID=data['userID'],
             additional_context=data.get('additional_context')
         )
         
-        print(f"Query: {context_request.query}")
         # Extract search-relevant information using GPT
         extraction_response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -467,12 +465,13 @@ def get_dynamic_context():
             }])
 
         search_terms = extraction_response.choices[0].message.content.strip()
-        print("Search Terms:", f"'{search_terms}'")
-
-        # Return empty response immediately if no search terms or just quotes
+        
+        # Log the search terms decision
         if not search_terms or search_terms == '""':
-            print("No search terms found - returning empty response")
+            add_api_log("No search terms identified - query does not require knowledge base search", "info")
             return jsonify(DynamicContextResponse(answer="", contexts=[]).__dict__)
+        else:
+            add_api_log(f"Extracted search terms: {search_terms}", "info")
 
         # Generate embedding for the extracted search terms
         query_embedding = client.embeddings.create(
@@ -483,28 +482,45 @@ def get_dynamic_context():
         search_results = vector_store.query(vector=query_embedding,
                                      top_k=3,
                                      include_metadata=True)
-        print("Pinecone search results:", search_results)
 
-        # Prepare context
-        print("Processing matches...")
-        contexts = [{
-            "id": match["id"],
-            "score": match["score"],
-            "text": match["metadata"].get("text_content", "No content available")
-        } for match in search_results["matches"]]
+        # Process and log search results
+        contexts = []
+        for match in search_results["matches"]:
+            # Get the parent file ID from the metadata
+            parent_file_id = match["metadata"].get("parent_file")
+            if parent_file_id and parent_file_id.startswith("file_"):
+                filename = parent_file_id[5:]  # Remove "file_" prefix
+                # Query the database to get file information
+                file = db.session.execute(
+                    db.select(models.File).filter_by(filename=filename)
+                ).scalar()
+                if file:
+                    contexts.append({
+                        "id": match["id"],
+                        "score": match["score"],
+                        "text": match["metadata"].get("text_content", "No content available"),
+                        "filename": file.filename,
+                        "display_title": file.display_title,
+                        "thumbnail_path": file.thumbnail_path
+                    })
+                    add_api_log(
+                        f"Found relevant content in: {file.display_title or file.filename}",
+                        "info",
+                        {
+                            "thumbnail_path": file.thumbnail_path,
+                            "file_id": file.id
+                        } if file.thumbnail_path else None
+                    )
 
         retrieved_context = " ".join([
             match["metadata"].get("text_content", "")
             for match in search_results["matches"]
         ])
-        print("Number of matches:", len(search_results["matches"]))
 
-        # Additional context if provided
         if context_request.additional_context:
             retrieved_context += f"\n{context_request.additional_context}"
 
         # Get response from GPT-4
-        print("Sending query to GPT with context length:", len(retrieved_context))
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{
@@ -517,14 +533,17 @@ def get_dynamic_context():
                 "role": "system",
                 "content": f"Relevant context: {retrieved_context}"
             }])
-        print("GPT Response:", response.choices[0].message.content)
+
+        response_content = response.choices[0].message.content
+        add_api_log("Generated response based on found content", "info", {"response": response_content})
 
         return jsonify(DynamicContextResponse(
-            answer=response.choices[0].message.content,
+            answer=response_content,
             contexts=contexts
         ).__dict__)
 
     except Exception as e:
+        add_api_log(f"Error processing request: {str(e)}", "error")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/health')
@@ -533,12 +552,15 @@ def health_check():
 
 @app.route('/api/logs')
 def get_api_logs():
-    """Get the current API logs"""
-    return jsonify(api_logs)
-
+    """Get logs with optional timestamp filter"""
+    since = request.args.get('since')
+    if since:
+        filtered_logs = [log for log in api_logs if log['timestamp'] > since]
+        return jsonify(filtered_logs)
+    return jsonify(api_logs[-50:])  # Return last 50 logs by default
 
 if __name__ == '__main__':
     with app.app_context():
         import models
         db.create_all()
-    app.run(debug=True)
+    socketio.run(app, debug=True)

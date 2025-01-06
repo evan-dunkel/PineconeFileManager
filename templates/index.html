@@ -1,129 +1,175 @@
 {% extends "base.html" %} {% block content %}
-<div class="row">
+<div class="row mb-4">
   <div class="col-md-12">
-    <div class="upload-zone">
-      <div class="upload-content">
-        <i
-          data-feather="upload-cloud"
-          class="mb-3"
-          style="width: 48px; height: 48px"
-        ></i>
-        <h4>Drag and drop files here</h4>
-        <p>or</p>
-        <input type="file" id="file-input" class="d-none" />
-        <button
-          class="btn btn-primary"
-          onclick="document.getElementById('file-input').click()"
-        >
-          Browse Files
-        </button>
-        <!-- <button
-          class="btn btn-secondary mt-2"
-          onclick="simulateUpload()"
-          id="test-upload-btn"
-        >
-          Test Upload Progress
-        </button> -->
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row file-list">
-  <div class="col-md-12">
-    <h3>Uploaded Files</h3>
-    {% if files %}
-    <div class="row">
-      {% for file in files %}
-      <div class="col-md-4 col-lg-3 mb-4">
-        <div class="file-card">
-          <a
-            href="{{ url_for('serve_file', file_id=file.id) }}"
-            target="_blank"
-            class="file-preview"
+    <div class="container-fluid p-4">
+      <div class="d-flex justify-content-end mb-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="advancedMode" />
+          <label class="form-check-label" for="advancedMode"
+            >Advanced Mode</label
           >
-            {% if file.thumbnail_path %}
-            <img
-              src="{{ url_for('static', filename=file.thumbnail_path) }}"
-              alt="{{ file.filename }}"
-              class="img-thumbnail"
-            />
-            {% else %}
-            <i
-              data-feather="{{ get_file_icon(file.mime_type) }}"
-              class="preview-icon"
-            ></i>
-            {% endif %}
-          </a>
-          <div class="file-info">
-            <p
-              class="file-name"
-              title="{{ file.filename }}"
-              data-bs-toggle="tooltip"
-              data-bs-placement="top"
-              data-bs-delay='{"show":1000, "hide":100}'
-            >
-              {{ file.display_title or file.filename }}
-            </p>
-            <small class="text-muted">
-              {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
-            </small>
-          </div>
-          <div class="file-actions">
-            <a
-              href="{{ url_for('serve_file', file_id=file.id) }}"
-              target="_blank"
-              class="btn btn-sm btn-outline-primary"
-              title="Open"
-            >
-              <i data-feather="external-link"></i>
-            </a>
-            <!-- <button
-              class="btn btn-sm btn-outline-primary rename-btn"
-              data-file-id="{{ file.id }}"
-              data-file-name="{{ file.filename }}"
-              title="Rename"
-            >
-              <i data-feather="edit-2"></i>
-            </button> -->
-            <form
-              action="{{ url_for('delete_file', file_id=file.id) }}"
-              method="POST"
-              class="d-inline"
-            >
-              <button
-                type="submit"
-                class="btn btn-sm btn-outline-danger"
-                title="Delete"
-              >
-                <i data-feather="trash-2"></i>
-              </button>
-            </form>
-          </div>
         </div>
       </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No files uploaded yet.</p>
-    {% endif %}
-  </div>
-</div>
 
-<div class="row">
-  <div class="col-md-12">
-    <div class="card mt-4">
-      <div
-        class="card-header d-flex justify-content-between align-items-center"
-      >
-        <h5 class="mb-0">API Logs</h5>
-        <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
-          Clear
-        </button>
+      <div id="tabsSection" style="display: none">
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link active"
+              id="upload-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#upload-content"
+              type="button"
+              role="tab"
+            >
+              File Manager
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link"
+              id="logs-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#logs-content"
+              type="button"
+              role="tab"
+            >
+              API Logs
+            </button>
+          </li>
+        </ul>
       </div>
-      <div class="card-body">
-        <div id="api-logs" class="log-container">
-          <div class="text-muted text-center">Waiting for API activity...</div>
+
+      <div class="tab-content">
+        <div
+          class="tab-pane fade show active"
+          id="upload-content"
+          role="tabpanel"
+        >
+          <div class="upload-zone mt-4">
+            <div class="upload-content">
+              <i
+                data-feather="upload-cloud"
+                class="mb-3"
+                style="width: 48px; height: 48px"
+              ></i>
+              <h4>Drag and drop files here</h4>
+              <p>or</p>
+              <input type="file" id="file-input" class="d-none" />
+              <button
+                class="btn btn-primary"
+                onclick="document.getElementById('file-input').click()"
+              >
+                Browse Files
+              </button>
+            </div>
+          </div>
+
+          <div class="file-list mt-4">
+            <h3>Uploaded Files</h3>
+            {% if files %}
+            <div class="row">
+              {% for file in files %}
+              <div class="col-md-4 col-lg-3 mb-4">
+                <div class="file-card">
+                  <a
+                    href="{{ url_for('serve_file', file_id=file.id) }}"
+                    target="_blank"
+                    class="file-preview"
+                  >
+                    {% if file.thumbnail_path %}
+                    <img
+                      src="{{ url_for('static', filename=file.thumbnail_path) }}"
+                      alt="{{ file.filename }}"
+                      class="img-thumbnail"
+                    />
+                    {% else %}
+                    <i
+                      data-feather="{{ get_file_icon(file.mime_type) }}"
+                      class="preview-icon"
+                    ></i>
+                    {% endif %}
+                  </a>
+                  <div class="file-info">
+                    <p
+                      class="file-name"
+                      title="{{ file.filename }}"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      data-bs-delay='{"show":1000, "hide":100}'
+                    >
+                      {{ file.display_title or file.filename }}
+                    </p>
+                    <small class="text-muted">
+                      {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </small>
+                  </div>
+                  <div class="file-actions">
+                    <a
+                      href="{{ url_for('serve_file', file_id=file.id) }}"
+                      target="_blank"
+                      class="btn btn-sm btn-outline-primary"
+                      title="Open"
+                    >
+                      <i data-feather="external-link"></i>
+                    </a>
+                    <form
+                      action="{{ url_for('delete_file', file_id=file.id) }}"
+                      method="POST"
+                      class="d-inline"
+                    >
+                      <button
+                        type="submit"
+                        class="btn btn-sm btn-outline-danger"
+                        title="Delete"
+                      >
+                        <i data-feather="trash-2"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No files uploaded yet.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="logs-content" role="tabpanel">
+          <div class="card mt-4">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h5 class="mb-0">API Logs</h5>
+              <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="verboseLogging"
+                  />
+                  <label class="form-check-label" for="verboseLogging"
+                    >Verbose</label
+                  >
+                </div>
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  onclick="clearLogs()"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="api-logs" class="log-container">
+                <div class="text-muted text-center">
+                  Waiting for API activity...
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
