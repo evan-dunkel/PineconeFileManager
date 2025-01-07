@@ -1,191 +1,158 @@
 {% extends "base.html" %} {% block content %}
 <div class="container-fluid p-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="form-check form-switch">
-      <input class="form-check-input" type="checkbox" id="advancedMode" />
-      <label class="form-check-label" for="advancedMode">Advanced Mode</label>
-    </div>
-    <a href="{{ url_for('list_indexes') }}" class="btn btn-outline-primary"
-      >Manage Indexes</a
+  <div class="d-flex flex-column mb-3">
+    <label for="index_filter" class="text-muted">Pinecone Index:</label>
+    <select
+      class="form-control"
+      id="index_filter"
+      name="index_filter"
+      style="width: 200px"
     >
+      <option value="">All Indexes</option>
+      {% for index in indexes %}
+      <option value="{{ index.id }}">
+        {{ index.name }} ({{ index.dimension }}d)
+      </option>
+      {% endfor %}
+    </select>
   </div>
 
-  <div id="tabsSection" style="display: none">
-    <ul class="nav nav-tabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button
-          class="nav-link active"
-          id="upload-tab"
-          data-bs-toggle="tab"
-          data-bs-target="#upload-content"
-          type="button"
-          role="tab"
-        >
-          File Manager
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button
-          class="nav-link"
-          id="logs-tab"
-          data-bs-toggle="tab"
-          data-bs-target="#logs-content"
-          type="button"
-          role="tab"
-        >
-          API Logs
-        </button>
-      </li>
-    </ul>
-  </div>
+  <div class="upload-zone mt-4">
+    <div class="upload-content">
+      <i
+        data-feather="upload-cloud"
+        class="mb-3"
+        style="width: 48px; height: 48px"
+      ></i>
+      <h4>Drag and drop files here</h4>
+      <p>or</p>
+      <input type="file" id="file-input" class="d-none" />
+      <button
+        class="btn btn-primary"
+        onclick="document.getElementById('file-input').click()"
+      >
+        Browse Files
+      </button>
 
-  <div class="tab-content">
-    <div class="tab-pane fade show active" id="upload-content" role="tabpanel">
-      <div class="upload-zone mt-4">
-        <div class="upload-content">
-          <i
-            data-feather="upload-cloud"
-            class="mb-3"
-            style="width: 48px; height: 48px"
-          ></i>
-          <h4>Drag and drop files here</h4>
-          <p>or</p>
-          <input type="file" id="file-input" class="d-none" />
-          <div class="row align-items-center">
-            <div class="col-md-8">
+      <!-- Index selection modal -->
+      <div class="modal fade" id="indexSelectionModal" tabindex="-1">
+        <div class="modal-dialog" style="max-width: 300px">
+          <div class="modal-content">
+            <div class="modal-header py-2">
+              <h6 class="modal-title mb-0">Choose an Index</h6>
               <button
-                class="btn btn-primary"
-                onclick="document.getElementById('file-input').click()"
-              >
-                Browse Files
-              </button>
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+              ></button>
             </div>
-            <div class="col-md-4">
-              <select
-                class="form-control"
-                id="index_id"
-                name="index_id"
-                required
-              >
-                <option value="">Choose an index...</option>
+            <div class="modal-body py-2">
+              <select class="form-select" id="upload_index_id">
                 {% for index in indexes %}
-                <option value="{{ index.id }}">
-                  {{ index.name }} ({{ index.dimension }}d)
-                </option>
+                <option value="{{ index.id }}">{{ index.name }}</option>
                 {% endfor %}
               </select>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="file-list mt-4">
-        <h3>Uploaded Files</h3>
-        {% if files %}
-        <div class="row">
-          {% for file in files %}
-          <div class="col-md-4 col-lg-3 mb-4">
-            <div class="file-card">
-              <a
-                href="{{ url_for('serve_file', file_id=file.id) }}"
-                target="_blank"
-                class="file-preview"
+            <div class="modal-footer py-1">
+              <button
+                type="button"
+                class="btn btn-sm btn-secondary"
+                data-bs-dismiss="modal"
               >
-                {% if file.thumbnail_path %}
-                <img
-                  src="{{ url_for('static', filename=file.thumbnail_path) }}"
-                  alt="{{ file.filename }}"
-                  class="img-thumbnail"
-                />
-                {% else %}
-                <i
-                  data-feather="{{ get_file_icon(file.mime_type) }}"
-                  class="preview-icon"
-                ></i>
-                {% endif %}
-              </a>
-              <div class="file-info">
-                <p
-                  class="file-name"
-                  title="{{ file.filename }}"
-                  data-bs-toggle="tooltip"
-                  data-bs-placement="top"
-                  data-bs-delay='{"show":1000, "hide":100}'
-                >
-                  {{ file.display_title or file.filename }}
-                </p>
-                <small class="text-muted">
-                  {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                </small>
-                <span class="badge bg-info">{{ file.index.name }}</span>
-              </div>
-              <div class="file-actions">
-                <a
-                  href="{{ url_for('serve_file', file_id=file.id) }}"
-                  target="_blank"
-                  class="btn btn-sm btn-outline-primary"
-                  title="Open"
-                >
-                  <i data-feather="external-link"></i>
-                </a>
-                <form
-                  action="{{ url_for('delete_file', file_id=file.id) }}"
-                  method="POST"
-                  class="d-inline"
-                >
-                  <button
-                    type="submit"
-                    class="btn btn-sm btn-outline-danger"
-                    title="Delete"
-                  >
-                    <i data-feather="trash-2"></i>
-                  </button>
-                </form>
-              </div>
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                onclick="proceedWithUpload()"
+              >
+                Upload
+              </button>
             </div>
           </div>
-          {% endfor %}
         </div>
-        {% else %}
-        <p class="text-muted">No files uploaded yet.</p>
-        {% endif %}
       </div>
     </div>
 
-    <div class="tab-pane fade" id="logs-content" role="tabpanel">
-      <div class="card mt-4">
-        <div
-          class="card-header d-flex justify-content-between align-items-center"
-        >
-          <h5 class="mb-0">API Logs</h5>
-          <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="verboseLogging"
-              />
-              <label class="form-check-label" for="verboseLogging"
-                >Verbose</label
-              >
-            </div>
-            <button
-              class="btn btn-sm btn-outline-secondary"
-              onclick="clearLogs()"
+    <!-- Upload Progress -->
+    <div class="upload-progress">
+      <div class="progress-status">Uploading...</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-list mt-4">
+    <h3>Uploaded Files</h3>
+    {% if files %}
+    <div class="row">
+      {% for file in files %}
+      <div class="file-wrapper">
+        <div class="file-card" data-index-id="{{ file.index_id }}">
+          <a
+            href="{{ url_for('serve_file', file_id=file.id) }}"
+            target="_blank"
+            class="file-preview"
+          >
+            {% if file.thumbnail_path %}
+            <img
+              src="{{ url_for('static', filename=file.thumbnail_path) }}"
+              alt="{{ file.filename }}"
+              class="img-thumbnail"
+            />
+            {% else %}
+            <i
+              data-feather="{{ get_file_icon(file.mime_type) }}"
+              class="preview-icon"
+            ></i>
+            {% endif %}
+          </a>
+          <div class="file-info">
+            <p
+              class="file-name"
+              title="{{ file.filename }}"
+              data-bs-toggle="tooltip"
+              data-bs-placement="top"
+              data-bs-delay='{"show":1000, "hide":100}'
             >
-              Clear
-            </button>
+              {{ file.display_title or file.filename }}
+            </p>
+            <small class="text-muted">
+              {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            </small>
+            <span class="badge bg-info">{{ file.index.name }}</span>
           </div>
-        </div>
-        <div class="card-body">
-          <div id="api-logs" class="log-container">
-            <div class="text-muted text-center">
-              Waiting for API activity...
-            </div>
+          <div class="file-actions">
+            <a
+              href="{{ url_for('serve_file', file_id=file.id) }}"
+              target="_blank"
+              class="btn btn-sm btn-outline-primary"
+              title="Open"
+            >
+              <i data-feather="external-link"></i>
+            </a>
+            <form
+              action="{{ url_for('delete_file', file_id=file.id) }}"
+              method="POST"
+              class="d-inline"
+            >
+              <button
+                type="submit"
+                class="btn btn-sm btn-outline-danger"
+                title="Delete"
+              >
+                <i data-feather="trash-2"></i>
+              </button>
+            </form>
           </div>
         </div>
       </div>
+      {% endfor %}
     </div>
+    {% else %}
+    <p class="text-muted">No files uploaded yet.</p>
+    {% endif %}
   </div>
 </div>
 

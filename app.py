@@ -215,12 +215,26 @@ with app.app_context():
 # Routes
 @app.route('/')
 def index():
+    return redirect(url_for('files'))
+
+@app.route('/files')
+def files():
     files = db.session.execute(db.select(models.File)).scalars()
     indexes = db.session.query(models.PineconeIndex).all()
     return render_template('index.html',
                          files=files,
                          indexes=indexes,
                          get_file_icon=get_file_icon)
+
+@app.route('/logs')
+def logs():
+    indexes = db.session.query(models.PineconeIndex).all()
+    return render_template('logs.html', indexes=indexes)
+
+@app.route('/manage-indexes')
+def manage_indexes():
+    indexes = db.session.query(models.PineconeIndex).all()
+    return render_template('indexes.html', indexes=indexes)
 
 @app.route('/indexes')
 def list_indexes():
@@ -541,23 +555,49 @@ def get_index_info(index_name):
                 
             query_text = data['query']
             top_k = data.get('top_k', 5)  # Default to 5 results
+            additional_context = data.get('additional_context', '')
             
             # Initialize vector store for this index
             vector_store = pinecone_client.Index(index_name)
             
             try:
-                # Generate embedding for the query
+                # Extract search-relevant information using GPT
+                extraction_response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{
+                        "role": "system",
+                        "content": "IF the query could be a request to search, extract key information from the query that would be relevant for searching a knowledge base. Return only the essential search terms and concepts. Otherwise, return an empty string."
+                    }, {
+                        "role": "user",
+                        "content": query_text
+                    }])
+
+                search_terms = extraction_response.choices[0].message.content.strip()
+                logging.info("Search Terms: '%s'", search_terms)
+
+                # Return empty response immediately if no search terms or just quotes
+                if not search_terms or search_terms == '""':
+                    logging.info("No search terms found - returning empty response")
+                    return jsonify({
+                        "answer": "",
+                        "contexts": []
+                    })
+
+                # Generate embedding for the extracted search terms
                 embedding_response = client.embeddings.create(
-                    model="text-embedding-ada-002",
-                    input=query_text
+                    input=search_terms,
+                    model="text-embedding-ada-002"
                 )
                 
                 if not embedding_response or not embedding_response.data:
                     logging.error("Failed to generate query embedding")
-                    return jsonify([])
+                    return jsonify({
+                        "answer": "",
+                        "contexts": []
+                    })
                     
                 # Query the index
-                logging.info(f"Searching Pinecone index '{index_name}' for: {query_text}")
+                logging.info(f"Searching Pinecone index '{index_name}' for: {search_terms}")
                 query_response = vector_store.query(
                     vector=embedding_response.data[0].embedding,
                     top_k=top_k,
@@ -565,37 +605,50 @@ def get_index_info(index_name):
                 )
                 
                 # Process and format results
-                results = []
+                contexts = []
+                retrieved_context = ""
+                
                 for match in query_response.matches:
-                    # Get the parent file information
-                    parent_file_id = match.metadata.get('parent_file')
-                    if parent_file_id:
-                        file = db.session.query(models.File).filter_by(vector_id=parent_file_id).first()
-                        if file:
-                            results.append({
-                                'score': match.score,
-                                'chunk_index': match.metadata.get('chunk_index'),
-                                'total_chunks': match.metadata.get('total_chunks'),
-                                'text_content': match.metadata.get('text_content'),
-                                'file': {
-                                    'id': file.id,
-                                    'filename': file.filename,
-                                    'display_title': file.display_title,
-                                    'mime_type': file.mime_type,
-                                    'uploaded_at': file.uploaded_at.isoformat() if file.uploaded_at else None
-                                }
-                            })
-                
-                if not results:
-                    logging.info(f"No results found for query: {query_text}")
-                else:
-                    logging.info(f"Found {len(results)} results for query: {query_text}")
-                
-                return jsonify(results)
+                    # Add to contexts list
+                    contexts.append({
+                        "id": match.id,
+                        "score": match.score,
+                        "text": match.metadata.get("text_content", "No content available")
+                    })
+                    
+                    # Add to retrieved context string
+                    retrieved_context += match.metadata.get("text_content", "") + " "
+
+                # Add additional context if provided
+                if additional_context:
+                    retrieved_context += f"\n{additional_context}"
+
+                # Get response from GPT-4
+                logging.info("Sending query to GPT with context length: %d", len(retrieved_context))
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{
+                        "role": "system",
+                        "content": "You are a helpful assistant. Find anything relevant to the query."
+                    }, {
+                        "role": "user",
+                        "content": query_text
+                    }, {
+                        "role": "system",
+                        "content": f"Relevant context: {retrieved_context}"
+                    }])
+
+                return jsonify({
+                    "answer": response.choices[0].message.content,
+                    "contexts": contexts
+                })
                 
             except Exception as e:
                 logging.error(f"Error during query processing: {str(e)}")
-                return jsonify([])
+                return jsonify({
+                    "answer": "",
+                    "contexts": []
+                })
             
     except Exception as e:
         logging.error(f"Error accessing index: {str(e)}")

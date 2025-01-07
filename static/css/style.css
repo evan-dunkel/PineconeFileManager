@@ -18,6 +18,10 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
   padding: 2rem;
 }
 
@@ -47,18 +51,51 @@ body {
   margin-top: 2rem;
 }
 
+.file-list .row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-flow: dense;
+  gap: 1.5rem;
+  margin: 0;
+}
+
+.file-wrapper {
+  display: contents;
+}
+
+.file-wrapper.hidden {
+  display: none;
+}
+
+.file-list .col-md-4,
+.file-list .col-lg-3 {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
 .file-card {
   background: white;
   border-radius: 8px;
   padding: 1rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  transition: all 0.3s ease;
   position: relative;
+  opacity: 1;
+  transform: scale(1);
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.file-card:hover {
-  /* transform: translateY(-2px); */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.file-card.hidden {
+  display: none;
+}
+
+.file-card.fade-out {
+  opacity: 0;
+  transform: scale(0.95);
 }
 
 .file-preview {
@@ -69,6 +106,7 @@ body {
   border-radius: 4px;
   background-color: var(--light-gray);
   transition: background-color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .file-preview:hover {
@@ -176,11 +214,13 @@ body {
 .upload-progress {
   display: none;
   width: 100%;
-  margin-top: 1rem;
-  padding: 1rem;
-  /* background: white; */
-  /* border-radius: 8px; */
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+  max-width: 300px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
 }
 
 .progress-bar-container {
@@ -216,6 +256,14 @@ body {
     transparent
   );
   animation: sparkle 1.5s linear infinite;
+}
+
+.upload-progress.error .progress-bar {
+  background: linear-gradient(90deg, var(--danger-color), #ff4444);
+}
+
+.upload-progress.error .progress-status {
+  color: var(--danger-color);
 }
 
 .progress-status {

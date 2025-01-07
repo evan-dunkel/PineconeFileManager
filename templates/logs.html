@@ -1,0 +1,47 @@
+{% extends "base.html" %} {% block content %}
+<div class="container-fluid p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-3">
+      <select
+        class="form-control"
+        id="index_filter"
+        name="index_filter"
+        style="width: 200px"
+      >
+        <option value="">All Indexes</option>
+        {% for index in indexes %}
+        <option value="{{ index.id }}">
+          {{ index.name }} ({{ index.dimension }}d)
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">API Logs</h5>
+      <div class="d-flex align-items-center gap-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="verboseLogging" />
+          <label class="form-check-label" for="verboseLogging">Verbose</label>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+          Clear
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="api-logs" class="log-container">
+        <div class="text-muted text-center">Waiting for API activity...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    feather.replace();
+  });
+</script>
+{% endblock %}
