@@ -91,6 +91,7 @@
               <th>Region</th>
               <th>Status</th>
               <th>Files</th>
+              <th>API Endpoint</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -109,6 +110,23 @@
                 >
               </td>
               <td>{{ index.files|length }}</td>
+              <td>
+                <div class="input-group">
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    value="/api/{{ index.name }}"
+                    readonly
+                  />
+                  <button
+                    class="btn btn-outline-secondary btn-sm copy-btn"
+                    type="button"
+                    data-clipboard-text="/api/{{ index.name }}"
+                  >
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                </div>
+              </td>
               <td>
                 <form
                   action="{{ url_for('delete_index', index_id=index.id) }}"

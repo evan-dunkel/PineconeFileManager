@@ -206,15 +206,11 @@ function restoreActiveTab() {
 
 function isHighlightedEvent(message) {
   return (
-    message.startsWith("Extracted search terms:") ||
-    message ===
-      "No search terms identified - query does not require knowledge base search" ||
-    message.startsWith("Found relevant content in:") ||
-    message === "Generated response based on found content" ||
-    message.startsWith("Error") ||
-    message.startsWith("No results found for query:") ||
-    message.startsWith("Searching Pinecone index") ||
-    (message.startsWith("Found") && message.includes("results for query:"))
+    message.startsWith("Search terms identified:") ||
+    message.startsWith("No search terms found") ||
+    message.startsWith("Found relevant content in") ||
+    message.startsWith("Generated response:") ||
+    message.startsWith("Error")
   );
 }
 
@@ -222,45 +218,71 @@ function formatLogMessage(log) {
   const message = log.message;
 
   // Check for different types of messages and format accordingly
-  if (message.startsWith("Extracted search terms:")) {
-    return `🔍 Search terms identified: <strong>${message
-      .split(":")[1]
-      .trim()}</strong>`;
+  if (message.startsWith("Search terms identified:")) {
+    const terms = message.substring("Search terms identified:".length).trim();
+    return `🔍 Search terms identified: <span class="highlight">${terms}</span>`;
   }
 
-  if (
-    message ===
-    "No search terms identified - query does not require knowledge base search"
-  ) {
-    return `ℹ️ No knowledge base search needed for this query`;
+  if (message.startsWith("No search terms found")) {
+    return `ℹ️ ${message}`;
   }
 
-  if (message.startsWith("Found relevant content in:")) {
-    const filename = message.split(":")[1].trim();
-    const thumbnailHtml = log.thumbnail_path
-      ? `<div class="content-preview">
-          <img src="/static/${log.thumbnail_path}" alt="Content preview" class="content-thumbnail">
-         </div>`
-      : "";
+  if (message.startsWith("Found relevant content in")) {
+    // Extract filename from message
+    const filename = message.substring("Found relevant content in ".length);
+
+    // Construct thumbnail path
+    const thumbnailPath = `/static/thumbnails/pdf_thumb_${filename}.jpg`;
+
+    // Get content from matches if available
+    const content = log.matches
+      ? log.matches
+          .map((match) => match.metadata.text_content)
+          .join("\n\n---\n\n")
+      : log.contexts
+      ? log.contexts.map((ctx) => ctx.text).join("\n\n")
+      : log.text_content || "No content available";
+
+    // Split into main content and expandable section
     return `
-      <div class="d-flex align-items-center gap-3">
-        ${thumbnailHtml}
-        <div>📄 Found relevant content in <strong>${filename}</strong></div>
+      <div class="log-main-content d-flex flex-column w-100">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-3">
+            <div class="content-preview">
+              <img src="${thumbnailPath}" alt="${filename}" class="content-thumbnail">
+            </div>
+            <div>📄 Found relevant content in <span class="highlight">${filename}</span></div>
+          </div>
+          <button class="btn btn-sm btn-link p-0 toggle-response" aria-expanded="false">
+            <i data-feather="chevron-down"></i>
+          </button>
+        </div>
+        <div class="expandable-content" style="display: none;">
+          <div class="mt-2 p-3 bg-light rounded">
+            <pre class="mb-0" style="white-space: pre-wrap;">${content}</pre>
+          </div>
+        </div>
       </div>
     `;
   }
 
-  if (message === "Generated response based on found content") {
+  if (message.startsWith("Generated response:")) {
+    // Split into main content and expandable section
+    const responseContent = message
+      .substring("Generated response:".length)
+      .trim();
     return `
-      <div class="d-flex align-items-center justify-content-between">
-        <span>✨ Response generated based on found content</span>
-        <button class="btn btn-sm btn-link p-0 toggle-response" aria-expanded="false">
-          <i data-feather="chevron-down"></i>
-        </button>
-      </div>
-      <div class="response-content" style="display: none;">
-        <div class="mt-2 p-2 bg-light rounded">
-          ${log.response || "No response content available"}
+      <div class="log-main-content d-flex flex-column w-100">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>✨ Generated response</div>
+          <button class="btn btn-sm btn-link p-0 toggle-response" aria-expanded="false">
+            <i data-feather="chevron-down"></i>
+          </button>
+        </div>
+        <div class="expandable-content" style="display: none;">
+          <div class="mt-2 p-3 bg-light rounded">
+            <pre class="mb-0" style="white-space: pre-wrap;">${responseContent}</pre>
+          </div>
         </div>
       </div>
     `;
@@ -270,41 +292,27 @@ function formatLogMessage(log) {
     return `❌ ${message}`;
   }
 
-  if (message.startsWith("Searching Pinecone index")) {
-    const parts = message.match(/Searching Pinecone index '(.+)' for: (.+)/);
-    if (parts) {
-      const [_, indexName, query] = parts;
-      return `🔎 Searching index <strong>${indexName}</strong> for: <strong>${query}</strong>`;
-    }
-  }
-
-  if (message.startsWith("No results found for query:")) {
-    const query = message.split(":")[1].trim();
-    return `ℹ️ No results found for query: <strong>${query}</strong>`;
-  }
-
-  if (message.startsWith("Found") && message.includes("results for query:")) {
-    const parts = message.match(/Found (\d+) results for query: (.+)/);
-    if (parts) {
-      const [_, count, query] = parts;
-      return `✨ Found <strong>${count}</strong> results for query: <strong>${query}</strong>`;
-    }
-  }
-
   return message;
 }
 
 function toggleResponse(logEntry) {
   const toggleBtn = logEntry.querySelector(".toggle-response");
-  const responseContent = logEntry.querySelector(".response-content");
+  const expandableContent = logEntry.querySelector(".expandable-content");
   const isExpanded = toggleBtn.getAttribute("aria-expanded") === "true";
 
-  responseContent.style.display = isExpanded ? "none" : "block";
+  expandableContent.style.display = isExpanded ? "none" : "block";
   toggleBtn.setAttribute("aria-expanded", !isExpanded);
 
   // Rotate chevron
   const icon = toggleBtn.querySelector("svg");
   icon.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
+
+  // Smooth transition for height
+  if (!isExpanded) {
+    expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
+  } else {
+    expandableContent.style.maxHeight = "0";
+  }
 }
 
 function showCopyFeedback() {
@@ -325,9 +333,9 @@ function getCleanText(element) {
   // Create a clone of the element to manipulate
   const clone = element.cloneNode(true);
 
-  // Remove any buttons or interactive elements
+  // Remove expandable content and buttons
   const removeElements = clone.querySelectorAll(
-    ".toggle-response, .response-content"
+    ".toggle-response, .expandable-content"
   );
   removeElements.forEach((el) => el.remove());
 
@@ -402,15 +410,13 @@ function addLogEntry(log) {
     }
 
     const logEntry = document.createElement("div");
-    const isResponse =
-      log.message === "Generated response based on found content";
-    const hasPreview =
-      log.message.startsWith("Found relevant content in:") &&
-      log.thumbnail_path;
+    const isExpandable =
+      log.message.startsWith("Found relevant content in") ||
+      log.message.startsWith("Generated response:");
 
     logEntry.className = `log-entry ${log.level}${
-      isResponse ? " expandable" : ""
-    }${hasPreview ? " has-preview" : ""}`;
+      isExpandable ? " expandable" : ""
+    }`;
     logEntry.innerHTML = `
       <span class="timestamp">${log.timestamp}</span>
       <span class="message">${formatLogMessage(log)}</span>
@@ -423,19 +429,30 @@ function addLogEntry(log) {
     }
 
     // Add click handlers
-    if (isResponse) {
-      // For response entries, only make the response content clickable
+    if (isExpandable) {
+      // For expandable entries
       logEntry.addEventListener("click", (e) => {
-        const responseContent = logEntry.querySelector(".response-content");
-        if (e.target.closest(".response-content")) {
-          // If clicking the response content, copy it
-          copyToClipboard(log.response || "No response content available");
+        // If clicking inside the expandable content, copy to clipboard
+        if (e.target.closest(".expandable-content")) {
+          copyToClipboard(getContentForLog(log));
           e.stopPropagation();
-        } else if (!e.target.closest(".response-content")) {
-          // If clicking elsewhere, toggle the response
-          toggleResponse(logEntry);
+        } else {
+          // If clicking anywhere else (except the thumbnail), toggle the response
+          const thumbnail = e.target.closest(".content-thumbnail");
+          if (!thumbnail) {
+            toggleResponse(logEntry);
+          }
         }
       });
+
+      // Add specific click handler for the toggle button
+      const toggleBtn = logEntry.querySelector(".toggle-response");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleResponse(logEntry);
+        });
+      }
     } else {
       // For regular entries, handle clicks based on target
       logEntry.addEventListener("click", (e) => {
@@ -473,28 +490,30 @@ function refreshLogs() {
     logsContainer.innerHTML = "";
     logsToShow.forEach((log) => {
       const logEntry = document.createElement("div");
-      const isResponse =
-        log.message === "Generated response based on found content";
-      const hasPreview =
-        log.message.startsWith("Found relevant content in:") &&
-        log.thumbnail_path;
+      const isExpandable =
+        log.message.startsWith("Found relevant content in") ||
+        log.message.startsWith("Generated response:");
 
       logEntry.className = `log-entry ${log.level}${
-        isResponse ? " expandable" : ""
-      }${hasPreview ? " has-preview" : ""}`;
+        isExpandable ? " expandable" : ""
+      }`;
       logEntry.innerHTML = `
         <span class="timestamp">${log.timestamp}</span>
         <span class="message">${formatLogMessage(log)}</span>
       `;
 
-      if (isResponse) {
+      if (isExpandable) {
         logEntry.addEventListener("click", (e) => {
-          const responseContent = logEntry.querySelector(".response-content");
-          if (e.target.closest(".response-content")) {
-            copyToClipboard(log.response || "No response content available");
+          // If clicking inside the expandable content, copy to clipboard
+          if (e.target.closest(".expandable-content")) {
+            copyToClipboard(getContentForLog(log));
             e.stopPropagation();
-          } else if (!e.target.closest(".response-content")) {
-            toggleResponse(logEntry);
+          } else {
+            // If clicking anywhere else (except the thumbnail), toggle the response
+            const thumbnail = e.target.closest(".content-thumbnail");
+            if (!thumbnail) {
+              toggleResponse(logEntry);
+            }
           }
         });
       } else {
@@ -614,3 +633,22 @@ document.addEventListener("DOMContentLoaded", function () {
     fileInput.addEventListener("change", handleFileSelect);
   }
 });
+
+// Update the click handlers to use the same content extraction logic
+function getContentForLog(log) {
+  if (log.message.startsWith("Found relevant content in")) {
+    return log.matches
+      ? log.matches
+          .map((match) => match.metadata.text_content)
+          .join("\n\n---\n\n")
+      : log.contexts
+      ? log.contexts.map((ctx) => ctx.text).join("\n\n")
+      : log.text_content || "No content available";
+  } else if (log.message.startsWith("Generated response:")) {
+    return (
+      log.message.substring("Generated response:".length).trim() ||
+      "No response content available"
+    );
+  }
+  return "No content available";
+}

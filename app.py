@@ -56,10 +56,22 @@ max_logs = 100
 def add_api_log(message, level="info", additional_data=None):
     global api_logs
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Set verbose to True by default
+    is_verbose = True
+    
+    # These are the only messages we want to show in default mode
+    if (message.startswith("Search terms identified:") or 
+        message.startswith("No search terms found") or
+        message.startswith("Found relevant content in") or
+        message.startswith("Generated response:")):
+        is_verbose = False
+    
     log_entry = {
         "timestamp": timestamp,
         "message": message,
         "level": level,
+        "verbose": is_verbose,
         **(additional_data or {})
     }
     api_logs.append(log_entry)
@@ -502,7 +514,16 @@ def delete_file(file_id):
 @app.route('/api/logs')
 def get_logs():
     """Return the API logs."""
-    return jsonify(api_logs)
+    verbose = request.args.get('verbose', 'false').lower() == 'true'
+    index = request.args.get('index')
+    
+    filtered_logs = api_logs.copy()
+    if not verbose:
+        filtered_logs = [log for log in filtered_logs if log.get('verbose') is False]
+    if index:
+        filtered_logs = [log for log in filtered_logs if log.get('index') == index]
+        
+    return jsonify(filtered_logs)
 
 @app.route('/api/<index_name>', methods=['GET', 'POST'])
 def get_index_info(index_name):
@@ -573,15 +594,14 @@ def get_index_info(index_name):
                     }])
 
                 search_terms = extraction_response.choices[0].message.content.strip()
-                logging.info("Search Terms: '%s'", search_terms)
-
-                # Return empty response immediately if no search terms or just quotes
                 if not search_terms or search_terms == '""':
-                    logging.info("No search terms found - returning empty response")
+                    add_api_log("No search terms found - no Pinecone search necessary", level="info", additional_data={"index": index_name})
                     return jsonify({
                         "answer": "",
                         "contexts": []
                     })
+                    
+                add_api_log(f"Search terms identified: {search_terms}", level="info", additional_data={"index": index_name})
 
                 # Generate embedding for the extracted search terms
                 embedding_response = client.embeddings.create(
@@ -590,14 +610,13 @@ def get_index_info(index_name):
                 )
                 
                 if not embedding_response or not embedding_response.data:
-                    logging.error("Failed to generate query embedding")
+                    add_api_log("Failed to generate query embedding", level="error")
                     return jsonify({
                         "answer": "",
                         "contexts": []
                     })
                     
                 # Query the index
-                logging.info(f"Searching Pinecone index '{index_name}' for: {search_terms}")
                 query_response = vector_store.query(
                     vector=embedding_response.data[0].embedding,
                     top_k=top_k,
@@ -608,7 +627,12 @@ def get_index_info(index_name):
                 contexts = []
                 retrieved_context = ""
                 
+                # Log found content
                 for match in query_response.matches:
+                    filename = match.metadata.get("filename", "Unknown file")
+                    display_title = match.metadata.get("display_title", filename)
+                    add_api_log(f"Found relevant content in {display_title}", level="info", additional_data={"index": index_name})
+                    
                     # Add to contexts list
                     contexts.append({
                         "id": match.id,
@@ -624,7 +648,6 @@ def get_index_info(index_name):
                     retrieved_context += f"\n{additional_context}"
 
                 # Get response from GPT-4
-                logging.info("Sending query to GPT with context length: %d", len(retrieved_context))
                 response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[{
@@ -637,9 +660,12 @@ def get_index_info(index_name):
                         "role": "system",
                         "content": f"Relevant context: {retrieved_context}"
                     }])
+                
+                generated_response = response.choices[0].message.content
+                add_api_log(f"Generated response: {generated_response}", level="info", additional_data={"index": index_name})
 
                 return jsonify({
-                    "answer": response.choices[0].message.content,
+                    "answer": generated_response,
                     "contexts": contexts
                 })
                 
